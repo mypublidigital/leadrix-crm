@@ -1,0 +1,24 @@
+# Configuração do projeto Supabase do CRM (para a Supabase CLI).
+# project_id é só um rótulo local; o ref real é definido no `supabase link`.
+project_id = "consulcard-crm"
+
+[functions.crm-handoff]
+verify_jwt = true    # chamado pelo app autenticado (envia HMAC ao operacional)
+
+[functions.crm-cancel]
+verify_jwt = true    # chamado pelo app autenticado
+
+[functions.projects-status]
+verify_jwt = false   # webhook INBOUND do operacional (sem JWT), autenticado por HMAC
+
+[functions.crm-copilot]
+verify_jwt = true    # chamado pelo app autenticado
+
+[functions.crm-admin-users]
+verify_jwt = true    # exige usuário admin autenticado
+
+[functions.crm-capture]
+verify_jwt = true    # captura de leads por foto (pré-CRM), usuário autenticado
+
+[functions.catalog]
+verify_jwt = false   # autorizado por X-Catalog-Key (operacional) ou JWT (teste)
