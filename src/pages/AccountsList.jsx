@@ -20,6 +20,30 @@ import {
   ABM_ACTIVE,
 } from '../lib/constants'
 
+// Detalhes da origem é texto livre: um <select> fragmentaria em variações
+// ("Febraban" vs "Febraban Tech 2026"), então o filtro casa por TRECHO e apenas
+// sugere o que já existe na base. Acento e caixa são ignorados no casamento.
+const semAcento = (s) =>
+  String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+
+function TextFilter({ label, value, onChange, options, placeholder, listId }) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <input
+        className="input"
+        value={value}
+        list={listId}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <datalist id={listId}>
+        {options.map((o) => <option key={o} value={o} />)}
+      </datalist>
+    </div>
+  )
+}
+
 function Select({ label, value, onChange, options, allLabel, hint }) {
   return (
     <div>
@@ -53,6 +77,7 @@ export default function AccountsList() {
   const [proposalStatus, setProposalStatus] = useState('')
   const [serviceId, setServiceId] = useState('')
   const [leadSource, setLeadSource] = useState('')
+  const [originDetails, setOriginDetails] = useState('')
   const [abmOnly, setAbmOnly] = useState(false)
   const [selected, setSelected] = useState(new Set())
   const [bulk, setBulk] = useState(false)
@@ -96,6 +121,19 @@ export default function AccountsList() {
     return [...set].sort()
   }, [accounts])
 
+  // Sugestões de "Detalhes da origem" já usadas na base. Quando há uma origem
+  // selecionada, sugere só os detalhes daquela origem — é a associação entre os
+  // dois campos valendo também no filtro.
+  const detalhesDeOrigem = useMemo(() => {
+    const set = new Set()
+    accounts.forEach((a) => {
+      if (!a.origin_details) return
+      if (leadSource && a.lead_source !== leadSource) return
+      set.add(a.origin_details.trim())
+    })
+    return [...set].sort((x, y) => x.localeCompare(y, 'pt-BR'))
+  }, [accounts, leadSource])
+
   const filtered = useMemo(() => {
     return accounts.filter((a) => {
       if (q && !a.name.toLowerCase().includes(q.toLowerCase())) return false
@@ -110,10 +148,11 @@ export default function AccountsList() {
       if (proposalStatus === 'sem' && info?.hasProposal) return false
       if (serviceId && !(svcByAccount.get(a.id)?.has(serviceId))) return false
       if (leadSource && a.lead_source !== leadSource) return false
+      if (originDetails && !semAcento(a.origin_details).includes(semAcento(originDetails))) return false
       if (abmOnly && !ABM_ACTIVE.includes(a.classification)) return false
       return true
     })
-  }, [accounts, q, classification, segment, size, temp, stage, cargo, proposalStatus, serviceId, leadSource, abmOnly, svcByAccount, oppInfo])
+  }, [accounts, q, classification, segment, size, temp, stage, cargo, proposalStatus, serviceId, leadSource, originDetails, abmOnly, svcByAccount, oppInfo])
 
   const counts = useMemo(() => {
     const c = { total: accounts.length, abm: 0 }
@@ -188,6 +227,9 @@ export default function AccountsList() {
               options={services.map((s) => [s.id, s.name])} />
             <Select label="Origem do lead" value={leadSource} onChange={setLeadSource} allLabel="Todas"
               options={Object.entries(LEAD_SOURCES)} />
+            <TextFilter label="Detalhes da origem" value={originDetails} onChange={setOriginDetails}
+              options={detalhesDeOrigem} listId="filtro-detalhes-origem"
+              placeholder={detalhesDeOrigem.length ? 'Qualquer trecho…' : 'Nada cadastrado ainda'} />
           </div>
         </div>
 

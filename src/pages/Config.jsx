@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserPlus, KeyRound, Trash2, Plus, Briefcase, Users, XCircle, ShieldCheck, RefreshCw } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
+import Modal from '../components/Modal'
 import {
   listUsers, createUser, resetUserPassword, removeUser, setUserAdmin,
   listLostReasons, addLostReason, removeLostReason,
@@ -35,6 +36,8 @@ function UsersCard() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [credential, setCredential] = useState(null) // {email, password, label}
+  const [aExcluir, setAExcluir] = useState(null) // usuário aguardando confirmação
+  const [excluindo, setExcluindo] = useState(false)
 
   async function add() {
     if (!email) return
@@ -57,7 +60,23 @@ function UsersCard() {
     try { await setUserAdmin(u.id, u.role !== 'admin'); qc.invalidateQueries({ queryKey: ['users'] }) }
     catch (e) { setErr(e.message) }
   }
-  async function del(id) { try { await removeUser(id); qc.invalidateQueries({ queryKey: ['users'] }) } catch (e) { setErr(e.message) } }
+  // Exclusão de usuário é irreversível e não tem desfazer: só executa depois da
+  // confirmação, e o aviso nomeia quem será apagado — "tem certeza?" sozinho não
+  // protege de ter clicado na lixeira da linha errada.
+  async function confirmarExclusao() {
+    if (!aExcluir) return
+    setExcluindo(true); setErr('')
+    try {
+      await removeUser(aExcluir.id)
+      qc.invalidateQueries({ queryKey: ['users'] })
+      setAExcluir(null)
+    } catch (e) {
+      setErr(e.message)
+      setAExcluir(null)
+    } finally {
+      setExcluindo(false)
+    }
+  }
 
   return (
     <Card icon={Users} title="Usuários" desc="Cadastre por nome e e-mail — o sistema gera a senha automaticamente para você repassar.">
@@ -97,12 +116,53 @@ function UsersCard() {
             <span className="flex shrink-0 items-center gap-1">
               <button className="btn-ghost text-xs" onClick={() => toggleAdmin(u)}>{u.role === 'admin' ? 'Remover admin' : 'Tornar admin'}</button>
               <button className="btn-ghost text-xs" onClick={() => reset(u)}><KeyRound size={14} /> Reset</button>
-              <button className="rounded p-1 text-ink-300 hover:bg-rose-50 hover:text-rose-500" onClick={() => del(u.id)}><Trash2 size={14} /></button>
+              <button
+                className="rounded p-1 text-ink-300 hover:bg-rose-50 hover:text-rose-500"
+                onClick={() => setAExcluir(u)}
+                title={`Apagar ${u.full_name || u.email}`}
+                aria-label={`Apagar ${u.full_name || u.email}`}
+              >
+                <Trash2 size={14} />
+              </button>
             </span>
           </li>
         ))}
         {users.length === 0 && <li className="py-2 text-sm text-ink-400">Nenhum usuário cadastrado ainda.</li>}
       </ul>
+
+      {aExcluir && (
+        <Modal
+          title="Apagar usuário"
+          onClose={() => !excluindo && setAExcluir(null)}
+          footer={
+            <>
+              <button className="btn-ghost" onClick={() => setAExcluir(null)} disabled={excluindo}>Cancelar</button>
+              <button
+                className="btn-primary bg-rose-600 hover:bg-rose-700"
+                onClick={confirmarExclusao}
+                disabled={excluindo}
+                autoFocus
+              >
+                {excluindo ? 'Apagando…' : 'Apagar usuário'}
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm text-ink-700">
+            Tem certeza que deseja apagar este usuário?
+          </p>
+          <div className="mt-3 rounded-lg border border-ink-200 bg-ink-50 p-3">
+            <div className="text-sm font-semibold text-ink-900">{aExcluir.full_name || 'Sem nome'}</div>
+            <div className="font-mono text-xs text-ink-600">{aExcluir.email}</div>
+            {aExcluir.role === 'admin' && (
+              <span className="chip mt-1 inline-block bg-brand-50 text-brand-600">administrador</span>
+            )}
+          </div>
+          <p className="mt-3 text-xs text-ink-500">
+            Ele perde o acesso imediatamente e a ação não pode ser desfeita.
+          </p>
+        </Modal>
+      )}
     </Card>
   )
 }

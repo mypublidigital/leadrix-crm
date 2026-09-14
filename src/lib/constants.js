@@ -38,6 +38,19 @@ export const LEAD_SOURCES = {
   outro: 'Outro',
 }
 
+// O que preencher em "Detalhes da origem" para cada origem. O campo é texto
+// livre — a dica só orienta, para a base não virar um amontoado de anotações
+// soltas ("veio de feira" vs. "Febraban Tech 2026").
+export const LEAD_SOURCE_DETAIL_HINT = {
+  indicacao: 'Em que contexto veio a indicação',
+  evento: 'Qual evento ou feira',
+  inbound: 'Qual canal ou campanha',
+  prospeccao: 'Qual lista, abordagem ou responsável',
+  parceiro: 'Qual parceiro',
+  base_historica: 'De qual base ou período',
+  outro: 'Descreva a origem',
+}
+
 export const CRM_STAGES = {
   lead: { label: 'Lead', color: 'bg-ink-100 text-ink-600', order: 0 },
   qualificado: { label: 'Qualificado', color: 'bg-sky-100 text-sky-700', order: 1 },

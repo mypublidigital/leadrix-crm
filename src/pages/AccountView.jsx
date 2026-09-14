@@ -196,6 +196,7 @@ export default function AccountView() {
                   ? <span className="chip bg-brand-50 text-brand-700">{LEAD_SOURCES[a.lead_source] || a.lead_source}</span>
                   : '—'}
               </Row>
+              <Row label="Detalhes da origem">{a.origin_details || '—'}</Row>
               <Row label="Quem indicou">{a.referred_by || '—'}</Row>
               <Row label="Status (base)">{a.status_base || '—'}</Row>
               <Row label="Anos de relacionamento">{(a.relationship_years || []).join(', ') || '—'}</Row>

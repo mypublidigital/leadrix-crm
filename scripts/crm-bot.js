@@ -42,6 +42,16 @@
   const modalTxt = () => modal()?.innerText || ''
   const modalBtn = (label) => byText('button', label, modal())
 
+  // Endereça campo do modal pelo RÓTULO, não pela posição. Com índice, incluir
+  // um campo no meio do formulário renumerava tudo e as verificações seguintes
+  // passavam a escrever no campo errado — falhando longe da causa.
+  function campo(rotulo) {
+    const m = modal()
+    if (!m) return null
+    const lab = $$('label', m).find((l) => l.textContent.trim().toLowerCase().startsWith(rotulo.toLowerCase()))
+    return lab ? lab.parentElement.querySelector('input, select, textarea') : null
+  }
+
   async function goto(path, wait = 900) {
     location.hash = ''
     history.pushState({}, '', path)
@@ -165,6 +175,7 @@
     await goto('/contas')
     const antes = $$('tbody tr').length
     const nome = 'Bot QA ' + Date.now()
+    const detalheOrigem = 'Feira QA ' + Date.now()
 
     byText('button', 'Nova conta')?.click()
     const abriu = await until(() => modal() && /Nova conta/.test(modalTxt()))
@@ -174,18 +185,34 @@
     const salvar = () => modalBtn('Cadastrar conta')
     check('salvar bloqueado sem nome', salvar()?.disabled === true)
 
-    const inputs = $$('input', modal())
-    setValue(inputs[0], nome)
+    setValue(campo('Nome (razão'), nome)
     await sleep(200)
     check('salvar liberado com nome', salvar()?.disabled === false)
 
     // validação de CNPJ
-    setValue($$('input', modal())[2], '11.222.333/0001-99')
+    setValue(campo('CNPJ'), '11.222.333/0001-99')
     await sleep(250)
     check('CNPJ inválido é barrado', /CNPJ inválido/i.test(modalTxt()) && salvar()?.disabled === true)
-    setValue($$('input', modal())[2], '33.000.167/0001-01')
+    setValue(campo('CNPJ'), '33.000.167/0001-01')
     await sleep(250)
     check('CNPJ válido libera', !/CNPJ inválido/i.test(modalTxt()))
+
+    // origem do lead + detalhes: o detalhe fica colado na origem e a dica muda
+    // conforme ela, porque texto livre sem orientação vira anotação solta
+    const selOrigem = campo('Origem do lead')
+    check('campo "Origem do lead" existe', Boolean(selOrigem))
+    const detalhe = () => campo('Detalhes da origem')
+    check('campo "Detalhes da origem" existe', Boolean(detalhe()))
+    if (selOrigem && detalhe()) {
+      setValue(selOrigem, 'evento'); await sleep(300)
+      check('dica do detalhe acompanha "Evento"', /evento|feira/i.test(detalhe().placeholder || ''), detalhe().placeholder)
+      setValue(selOrigem, 'parceiro'); await sleep(300)
+      check('dica do detalhe acompanha "Parceiro"', /parceiro/i.test(detalhe().placeholder || ''), detalhe().placeholder)
+      setValue(selOrigem, 'evento'); await sleep(250)
+      setValue(detalhe(), detalheOrigem)
+      await sleep(250)
+      check('detalhe da origem aceita texto', detalhe().value === detalheOrigem)
+    }
 
     // validação de e-mail no contato
     modalBtn('Adicionar')?.click()
@@ -217,6 +244,26 @@
     check('conta-visão mostra o nome', txt().includes(nome))
     check('conta-visão mostra o contato', /Contato QA/.test(txt()))
     check('conta-visão mostra o aniversário do contato', /\d+ anos/.test(txt()))
+    check('conta-visão mostra os detalhes da origem', txt().includes(detalheOrigem))
+
+    // filtro de detalhes da origem: casa por trecho, ignorando caixa
+    await goto('/contas')
+    const filtroDetalhe = $('input[list="filtro-detalhes-origem"]')
+    check('filtro "Detalhes da origem" existe na lista', Boolean(filtroDetalhe))
+    if (filtroDetalhe) {
+      const sugestoes = $$('#filtro-detalhes-origem option').map((o) => o.value)
+      check('detalhe cadastrado vira sugestão do filtro', sugestoes.includes(detalheOrigem))
+      setValue(filtroDetalhe, detalheOrigem.toUpperCase())
+      await sleep(400)
+      const linhas = $$('tbody tr').length
+      check('filtro por trecho encontra a conta', linhas >= 1 && txt().includes(nome), `${linhas} linha(s)`)
+      setValue(filtroDetalhe, 'zzz-nao-existe-zzz')
+      await sleep(350)
+      // a lista vazia é uma linha com a mensagem, não zero linhas
+      check('trecho inexistente mostra lista vazia',
+        /Nenhuma conta com os filtros/i.test(txt()) && !txt().includes(nome))
+      setValue(filtroDetalhe, ''); await sleep(300)
+    }
 
     // duplicata
     await goto('/contas')
@@ -224,7 +271,7 @@
     const abriuDup = await until(() => modal(), 4000)
     check('modal reabre para testar duplicata', abriuDup)
     if (abriuDup) {
-      setValue($$('input', modal())[0], nome.toUpperCase())
+      setValue(campo('Nome (razão'), nome.toUpperCase())
       await sleep(220)
       modalBtn('Cadastrar conta')?.click()
       const barrou = await until(() => /já existe uma conta/i.test(modalTxt()), 4000)
@@ -241,7 +288,7 @@
     check('modal "Editar conta" abre', abriuEd)
     if (abriuEd) {
       const contatosNoForm = $$('input', modal()).filter((i) => i.placeholder === 'Nome').length
-      setValue($$('input', modal())[1], 'Fantasia QA')
+      setValue(campo('Nome fantasia'), 'Fantasia QA')
       await sleep(200)
       modalBtn('Salvar')?.click()
       await until(() => !modal(), 4000)
@@ -481,6 +528,22 @@
       await sleep(500)
       check('motivo de não-venda é excluído', !/Motivo QA Bot/.test(txt()), `${antes} itens antes`)
     } else check('campo de novo motivo existe', false)
+
+    // Apagar usuário exige confirmação: é irreversível e não tem desfazer.
+    // O ponto da verificação é justamente que a lixeira NÃO apaga sozinha.
+    const lixeirasUsuario = $$('button[aria-label^="Apagar"]')
+    check('gestão de usuários tem botão de apagar', lixeirasUsuario.length > 0, `${lixeirasUsuario.length}`)
+    if (lixeirasUsuario.length) {
+      const alvo = lixeirasUsuario[lixeirasUsuario.length - 1].getAttribute('aria-label')
+      lixeirasUsuario[lixeirasUsuario.length - 1].click()
+      const abriu = await until(() => modal() && /Tem certeza que deseja apagar este usuário/i.test(modalTxt()), 3000)
+      check('lixeira pede confirmação antes de apagar', abriu)
+      check('confirmação diz QUEM será apagado', abriu && modalTxt().includes(alvo.replace('Apagar ', '')))
+      check('nada foi apagado ainda', $$('button[aria-label^="Apagar"]').length === lixeirasUsuario.length)
+      modalBtn('Cancelar')?.click()
+      await until(() => !modal(), 3000)
+      check('cancelar mantém o usuário', $$('button[aria-label^="Apagar"]').length === lixeirasUsuario.length)
+    }
   }
 
   async function testarExclusaoConta(conta) {

@@ -13,3 +13,17 @@ export const supabase = isSupabaseConfigured
       auth: { persistSession: true, autoRefreshToken: true },
     })
   : null
+
+// Cliente descartável, sem sessão persistida.
+//
+// A troca de senha feita a partir da tela de login precisa autenticar antes de
+// gravar. Se usasse o cliente principal, esse login já colocaria o app inteiro
+// como autenticado, a tela de login sairia do ar no meio do fluxo e não haveria
+// onde mostrar o erro caso a gravação falhasse — pior, o usuário entraria
+// achando que trocou a senha. Aqui a sessão nasce e morre dentro da operação.
+export function createIsolatedClient() {
+  if (!isSupabaseConfigured) return null
+  return createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}

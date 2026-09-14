@@ -4,7 +4,7 @@ import { Plus, Trash2, AlertCircle } from 'lucide-react'
 import Modal from './Modal'
 import { createAccount, updateAccount, saveContacts, listRoster } from '../lib/data'
 import { isValidCNPJ, formatCNPJ, isValidEmail } from '../lib/validators'
-import { CLASSIFICATIONS, SEGMENTS, ACCOUNT_SIZES, LEAD_SOURCES } from '../lib/constants'
+import { CLASSIFICATIONS, SEGMENTS, ACCOUNT_SIZES, LEAD_SOURCES, LEAD_SOURCE_DETAIL_HINT } from '../lib/constants'
 
 const arr = (v) => (Array.isArray(v) ? v.join(', ') : '')
 const parseArr = (v) => v.split(',').map((x) => x.trim()).filter(Boolean)
@@ -25,6 +25,7 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
     account_size: account.account_size || '',
     owner_id: account.owner_id || '',
     lead_source: account.lead_source || '',
+    origin_details: account.origin_details || '',
     referred_by: account.referred_by || '',
     status_base: account.status_base || '',
     relationship_years: arr(account.relationship_years),
@@ -67,6 +68,7 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
       account_size: f.account_size || null,
       owner_id: f.owner_id || null,
       lead_source: f.lead_source || null,
+      origin_details: f.origin_details.trim() || null,
       referred_by: f.referred_by.trim() || null,
       status_base: f.status_base || null,
       observations: f.observations || null,
@@ -136,7 +138,22 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
         {select('Segmento', 'segment', Object.entries(SEGMENTS))}
         {select('Porte', 'account_size', Object.entries(ACCOUNT_SIZES))}
         {select('Responsável pela conta', 'owner_id', roster.map((u) => [u.id, u.full_name || u.email]))}
+        {/* Origem e seus detalhes andam juntos: o segundo só faz sentido lendo
+            o primeiro, e a dica muda conforme a origem escolhida. */}
         {select('Origem do lead', 'lead_source', Object.entries(LEAD_SOURCES))}
+        <div>
+          <label className="label">Detalhes da origem</label>
+          <input
+            type="text"
+            className="input"
+            value={f.origin_details}
+            onChange={set('origin_details')}
+            placeholder={LEAD_SOURCE_DETAIL_HINT[f.lead_source] || 'Qualifique a origem'}
+          />
+          {!f.lead_source && (
+            <p className="mt-1 text-xs text-ink-400">Escolha a origem ao lado para uma dica do que preencher.</p>
+          )}
+        </div>
         {field(f.lead_source === 'indicacao' ? 'Quem indicou *' : 'Quem indicou', 'referred_by', 'text',
           f.lead_source === 'indicacao' && !f.referred_by.trim()
             ? <p className="mt-1 text-xs text-amber-600">Informe quem trouxe esta indicação.</p>
