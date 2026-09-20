@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "import:base": "node scripts/import-base.mjs",
     "gen:demo": "node scripts/gen-demo-data.mjs",
-    "audit:contacts": "node scripts/audit-contacts.mjs"
+    "audit:contacts": "node scripts/audit-contacts.mjs",
+    "gmail:token": "node scripts/gmail-token.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

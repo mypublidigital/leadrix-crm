@@ -55,19 +55,52 @@ Leadrix.
 
 ## 3. Mensageria: credenciais do Gmail 👉 você
 
-O CRM envia pela API do Gmail da conta `marcelo@leadrix.com.br`. É preciso um
-cliente OAuth e um refresh token — uma vez só:
+O CRM envia pela API do Gmail da conta `marcelo@leadrix.com.br`. São três
+segredos, obtidos uma vez só.
 
-1. **Google Cloud Console** → novo projeto (ou um existente) → **APIs & Services → Library** → habilite **Gmail API**.
-2. **OAuth consent screen**: tipo *External*, publique ou adicione `marcelo@leadrix.com.br` como usuário de teste. Escopo: `https://www.googleapis.com/auth/gmail.send`.
-3. **Credentials → Create credentials → OAuth client ID**, tipo **Desktop app**. Guarde *Client ID* e *Client secret*.
-4. Gere o refresh token autorizando com a conta da Leadrix (OAuth Playground ou script local), pedindo `access_type=offline` e o escopo `gmail.send`.
-5. Grave os segredos:
+### 3.1 Cliente OAuth no Google Cloud
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → crie (ou escolha) um projeto, ex.: *Leadrix CRM*.
+2. **APIs e serviços → Biblioteca** → procure **Gmail API** → **Ativar**.
+3. **APIs e serviços → Tela de permissão OAuth**:
+   - Se `leadrix.com.br` for **Google Workspace**: escolha **Interno**. É o melhor caminho — sem verificação e sem prazo de validade no token.
+   - Se for **Gmail comum**: escolha **Externo** e, terminada a configuração, clique em **Publicar app**. ⚠️ Enquanto o app ficar em *Teste*, o Google **invalida o refresh token em 7 dias** e o envio para de funcionar.
+   - Escopo: `https://www.googleapis.com/auth/gmail.send` (só enviar — não lê a caixa).
+4. **Credenciais → Criar credenciais → ID do cliente OAuth** → tipo **App para computador** → criar. Copie o **Client ID** e o **Client secret**.
+
+### 3.2 Refresh token
+
+Na pasta do projeto:
+
+```bash
+npm run gmail:token
+```
+
+O script pede o Client ID e o Client Secret, abre a autorização do Google (entre
+com a conta que vai enviar), e imprime o refresh token junto com o comando
+pronto do próximo passo. Se aparecer "app não verificado", siga em
+**Avançado → Ir para…** — é o seu próprio app.
+
+### 3.3 Gravar os segredos
 
 ```bash
 npx supabase secrets set --project-ref werxdvpowcpomleizhes \
   GMAIL_CLIENT_ID="..." GMAIL_CLIENT_SECRET="..." GMAIL_REFRESH_TOKEN="..."
 ```
+
+Não precisa republicar as funções: elas leem os segredos a cada chamada.
+
+### 3.4 Testar
+
+Em **Mensageria → Novo e-mail**, escolha uma conta com contato de e-mail (ou
+mande para você mesmo) e clique em **Enviar agora**. Se falhar, o motivo aparece
+na própria mensagem da fila:
+
+| Mensagem | O que é |
+|---|---|
+| `invalid_client` | Client ID/secret errados ou o cliente não é do tipo *App para computador*. |
+| `invalid_grant` | Refresh token expirado — app ficou em *Teste* (veja 3.1) ou o token foi revogado. Rode `npm run gmail:token` de novo. |
+| `Delegation denied` / `From address not verified` | O alias não está verificado em *Gmail → Configurações → Contas e importação → Enviar e-mail como*. |
 
 **Aliases:** cada remetente alternativo precisa estar em *Gmail → Configurações
 → Contas e importação → Enviar e-mail como*, verificado. Cadastre os aliases
