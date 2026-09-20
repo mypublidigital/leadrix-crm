@@ -166,13 +166,21 @@ export default function Importar() {
       <PageHeader title="Importador" subtitle="Importe listas de clientes em CSV ou Excel (.xlsx/.xls)." />
       <div className="space-y-5 p-6">
         <div className="card p-6">
+          <p className="mb-3 flex flex-wrap items-center gap-2 text-sm text-ink-600">
+            Primeira vez?
+            <a href="/modelo-importacao-leadrix.xlsx" download className="btn-outline py-1 text-xs">
+              Baixar planilha modelo
+            </a>
+            <span className="text-xs text-ink-500">Traz exemplos preenchidos, as instruções e os valores aceitos em cada coluna.</span>
+          </p>
           <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-ink-300 p-10 text-center hover:border-brand-400 hover:bg-brand-50/40">
             <Upload size={28} className="text-brand-500" />
             <div>
               <div className="text-sm font-semibold text-ink-800">Clique para selecionar um arquivo</div>
               <div className="text-xs text-ink-500">
-                CSV, XLSX ou XLS · colunas reconhecidas: Cliente, Contato (Nome/E-mail/Telefone), Classificação,
-                CNPJ, Mercado, Microssegmento, Nível ABM, Porte, Termômetro, Site, Status…
+                CSV, XLSX ou XLS · colunas reconhecidas: Cliente, Contato (Nome/Cargo/E-mail/Telefone),
+                Classificação, CNPJ, Mercado, Microssegmento, Nível ABM, Porte, Termômetro, Campanha,
+                Canal de origem, Origem do lead, Comissão de indicação (%), Site, Observações…
               </div>
             </div>
             <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={onFile} />

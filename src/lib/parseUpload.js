@@ -15,7 +15,8 @@
 // contar posição daria número errado.
 
 import { isValidEmail, isValidCNPJ, formatCNPJ, matchEnumDomain } from './validators'
-import { SEGMENTS, ACCOUNT_SIZES, THERMOMETER, ABM_TIERS } from './constants'
+import { SEGMENTS, ACCOUNT_SIZES, THERMOMETER, ABM_TIERS, LEAD_SOURCES, LEAD_ORIGINATORS } from './constants'
+import { CAMPAIGNS } from '../data/abmContext'
 
 const splitPipe = (v) => String(v || '').split('|').map((s) => s.trim()).filter(Boolean)
 const splitTitles = (v) => String(v || '').split(/\r?\n|\|/).map((s) => s.trim()).filter(Boolean)
@@ -77,6 +78,25 @@ function mapCNPJ(raw) {
 // Nível ABM aceita "1:1", "1:few", "1:many" ou os rótulos por extenso.
 const ABM_TIERS_DOMAIN = Object.fromEntries(Object.entries(ABM_TIERS).map(([k, v]) => [k, v.label.split(' · ')[1]]))
 
+// Campanha aceita o id ou o nome da tese.
+const CAMPAIGN_DOMAIN = Object.fromEntries(Object.entries(CAMPAIGNS).map(([k, v]) => [k, v.label]))
+
+// Comissão de indicação: aceita 10, "10", "10%" e célula formatada como
+// porcentagem no Excel (0,1 chega como fração). Fora de 0–100 vira aviso.
+function mapCommission(raw) {
+  const v = String(raw ?? '').trim()
+  if (!v) return { value: null, warning: null }
+  const n = Number(v.replace('%', '').replace(',', '.').trim())
+  if (Number.isNaN(n)) {
+    return { value: null, campo: 'Comissão de indicação (%)', warning: `"${raw}" não é um número — não importado.` }
+  }
+  const pct = n > 0 && n < 1 ? n * 100 : n
+  if (pct < 0 || pct > 100) {
+    return { value: null, campo: 'Comissão de indicação (%)', warning: `"${raw}" fora da faixa 0 a 100 — não importado.` }
+  }
+  return { value: Math.round(pct * 100) / 100, warning: null }
+}
+
 // aceita variações de nome de coluna
 const COL = {
   name: ['Cliente', 'Nome', 'Empresa', 'Razão Social', 'Conta'],
@@ -85,6 +105,7 @@ const COL = {
   macro: ['Macro Categorias', 'Macro Categoria', 'Categorias'],
   years: ['Anos de Relacionamento', 'Anos'],
   cname: ['Contato (Nome)', 'Contato', 'Nome do Contato'],
+  crole: ['Contato (Cargo)', 'Cargo', 'Cargo do Contato'],
   cemail: ['Contato (E-mail)', 'E-mail', 'Email', 'E-mail do Contato'],
   cphone: ['Contato (Telefone)', 'Telefone', 'Fone'],
   obs: ['Observações', 'Observacoes', 'Obs'],
@@ -96,6 +117,12 @@ const COL = {
   micro: ['Microssegmento', 'Micro segmento', 'Subsegmento'],
   tier: ['Nível ABM', 'Nivel ABM', 'Tier ABM', 'Tier'],
   accountSize: ['Porte'],
+  campaign: ['Campanha'],
+  leadSource: ['Canal de origem', 'Canal'],
+  originSource: ['Origem do lead', 'Origem'],
+  originOther: ['Origem (especificar)', 'Especificar origem'],
+  referredBy: ['Quem indicou', 'Indicado por'],
+  commission: ['Comissão de indicação (%)', 'Comissao de indicacao (%)', 'Comissão (%)', 'Comissao (%)'],
   commercialTemp: ['Termômetro', 'Termometro', 'Saúde', 'Saude', 'Termômetro Comercial'],
 }
 
@@ -178,7 +205,11 @@ export async function parseUploadFile(file) {
           msg: `"${email}" (contato "${cname || 'sem nome'}") com formato inválido — verifique antes de usar.`,
         })
       }
-      contacts.push({ name: cname || null, email: email || null, phone: phone || null, role: null, is_primary: false })
+      // O cargo alimenta o mapa do grupo decisor — vale a pena trazer da planilha.
+      contacts.push({
+        name: cname || null, role: pick(r, COL.crole) || null,
+        email: email || null, phone: phone || null, is_primary: false,
+      })
     })
     if (contacts.length) contacts[0].is_primary = true
 
@@ -192,6 +223,12 @@ export async function parseUploadFile(file) {
       commercialTemp: pickComLinha(grp, COL.commercialTemp),
       status: pickComLinha(grp, COL.status),
       obs: pickComLinha(grp, COL.obs),
+      campaign: pickComLinha(grp, COL.campaign),
+      leadSource: pickComLinha(grp, COL.leadSource),
+      originSource: pickComLinha(grp, COL.originSource),
+      originOther: pickComLinha(grp, COL.originOther),
+      referredBy: pickComLinha(grp, COL.referredBy),
+      commission: pickComLinha(grp, COL.commission),
     }
     const classification = mapClassification(src.classification.valor)
     const cnpj = mapCNPJ(src.cnpj.valor)
@@ -199,6 +236,18 @@ export async function parseUploadFile(file) {
     const tier = mapDomain(src.tier.valor, ABM_TIERS_DOMAIN, 'Nível ABM')
     const accountSize = mapDomain(src.accountSize.valor, ACCOUNT_SIZES, 'Porte')
     const commercialTemp = mapCommercialTemp(src.commercialTemp.valor)
+    const campaign = mapDomain(src.campaign.valor, CAMPAIGN_DOMAIN, 'Campanha')
+    const leadSource = mapDomain(src.leadSource.valor, LEAD_SOURCES, 'Canal de origem')
+    const originSource = mapDomain(src.originSource.valor, LEAD_ORIGINATORS, 'Origem do lead')
+    const commission = mapCommission(src.commission.valor)
+
+    // "Outros" sem a especificação é recusado pelo banco — vira aviso aqui,
+    // com a linha da planilha, em vez de erro cru na gravação.
+    if (originSource.value === 'outros' && !src.originOther.valor) {
+      originSource.value = null
+      originSource.campo = 'Origem (especificar)'
+      originSource.warning = 'Origem "Outros" exige a coluna "Origem (especificar)" preenchida — origem não importada.'
+    }
 
     // Cada aviso aponta a linha exata de onde o valor problemático veio; quando
     // a coluna nem existe na planilha, cai na primeira linha do grupo.
@@ -210,6 +259,10 @@ export async function parseUploadFile(file) {
       [tier, src.tier.linha],
       [accountSize, src.accountSize.linha],
       [commercialTemp, src.commercialTemp.linha],
+      [campaign, src.campaign.linha],
+      [leadSource, src.leadSource.linha],
+      [originSource, src.originSource.linha],
+      [commission, src.commission.linha],
     ].forEach(([r, linha]) => {
       if (r.warning) warnings.push({ linha: linha ?? linhaPadrao, campo: r.campo, msg: r.warning })
     })
@@ -225,6 +278,18 @@ export async function parseUploadFile(file) {
       abm_tier: tier.value,
       account_size: accountSize.value,
       commercial_temp: commercialTemp.value,
+      campaign: campaign.value,
+      lead_source: leadSource.value,
+      origin_details: src.originOther.valor && originSource.value !== 'outros' ? src.originOther.valor : null,
+      origin_source: originSource.value,
+      origin_source_other: originSource.value === 'outros' ? src.originOther.valor || null : null,
+      referred_by: src.referredBy.valor || null,
+      // Sem a coluna de comissão as chaves nem entram no objeto: assim a conta
+      // nova nasce com o padrão do banco (não gera comissão) e a reimportação
+      // não apaga um percentual que foi ajustado à mão no CRM.
+      ...(commission.value != null
+        ? { referral_commission: commission.value > 0, referral_commission_pct: commission.value }
+        : {}),
       macro_categories: [...macroSet].sort(),
       relationship_years: [...yearsSet].sort(),
       proposals,

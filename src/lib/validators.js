@@ -45,17 +45,22 @@ export function normText(s) {
 }
 
 /**
- * Casa um valor de texto contra um domínio de enum { key: label }, aceitando
- * a própria key (com/sem hífen/espaço) ou a primeira palavra do label
- * (ex.: "PME" de "PME (<500 contas)"). Retorna a key ou null se não casar.
+ * Casa um valor de texto contra um domínio de enum { key: label }, aceitando:
+ *   - a própria key, com ou sem hífen/underscore ("1:few", "conta_alvo");
+ *   - o label completo, como aparece na tela ("Prospecção ativa (ABM)");
+ *   - o label sem o parêntese ("Prospecção ativa", "Pequena").
+ * A terceira forma existe porque o parêntese costuma explicar a faixa, não
+ * identificar o valor; a segunda, porque quem monta a planilha copia da tela.
+ * Retorna a key ou null se não casar.
  */
 export function matchEnumDomain(raw, domain) {
-  const v = normText(raw).replace(/[-_]/g, ' ')
+  const limpa = (s) => normText(s).replace(/[-_]/g, ' ').trim()
+  const v = limpa(raw)
   if (!v) return null
   for (const [key, label] of Object.entries(domain)) {
-    const keyNorm = normText(key).replace(/[-_]/g, ' ')
-    const labelHead = normText(String(label).split('(')[0]).replace(/[-_]/g, ' ').trim()
-    if (v === keyNorm || v === labelHead) return key
+    const full = limpa(label)
+    const head = limpa(String(label).split('(')[0])
+    if (v === limpa(key) || v === full || v === head) return key
   }
   return null
 }

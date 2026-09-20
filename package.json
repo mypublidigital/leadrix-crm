@@ -12,7 +12,8 @@
     "import:base": "node scripts/import-base.mjs",
     "gen:demo": "node scripts/gen-demo-data.mjs",
     "audit:contacts": "node scripts/audit-contacts.mjs",
-    "gmail:token": "node scripts/gmail-token.mjs"
+    "gmail:token": "node scripts/gmail-token.mjs",
+    "modelo:importacao": "node scripts/gen-modelo-importacao.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
