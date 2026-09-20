@@ -85,9 +85,7 @@ if (!res.ok || !data.refresh_token) {
 
 console.log('\n── Refresh token ──────────────────────────────────────\n')
 console.log(data.refresh_token)
-console.log('\n── Agora rode (troque os valores) ─────────────────────\n')
-console.log(`npx supabase secrets set --project-ref SEU_REF \\
-  GMAIL_CLIENT_ID="${clientId}" \\
-  GMAIL_CLIENT_SECRET="${clientSecret}" \\
-  GMAIL_REFRESH_TOKEN="${data.refresh_token}"`)
+// Em linha única de propósito: o PowerShell não aceita a quebra com "\".
+console.log('\n── Agora rode (troque SEU_REF pelo ref do projeto) ────\n')
+console.log(`npx supabase secrets set --project-ref SEU_REF GMAIL_CLIENT_ID="${clientId}" GMAIL_CLIENT_SECRET="${clientSecret}" GMAIL_REFRESH_TOKEN="${data.refresh_token}"`)
 console.log('\nGuarde o token num lugar seguro: o Google só mostra uma vez.\n')
