@@ -1,51 +1,55 @@
 /** @type {import('tailwindcss').Config} */
+// Paleta Leadrix (skill leadrix-design): preto quente #1D1D1B, azul #2D7FF9 como
+// cor de interação, verde #48AD46 reservado à marca e a sinais de resultado/IA.
+// A área de trabalho é clara (densa em dados); a moldura (menu) é preta.
 export default {
-  content: ['./index.html', './src/**/*.{js,jsx}'],
+  content: { relative: true, files: ['./index.html', './src/**/*.{js,jsx}'] },
   theme: {
     extend: {
       colors: {
-        // Marca Consulcard — Azul (#354454) como primária, Verde (#8DC63F) como acento.
         brand: {
-          50: '#f4f5f7',
-          100: '#e5e8eb',
-          200: '#ccd2d9',
-          300: '#a6b0bb',
-          400: '#6f7d8c',
-          500: '#354454', // Azul Consulcard (primária)
-          600: '#2b3844',
-          700: '#232d37',
-          800: '#1c242c',
-          900: '#151b21',
-          950: '#0e1216',
+          50: '#EEF5FF',
+          100: '#DCEAFE',
+          200: '#BBD5FD',
+          300: '#93BEFD',
+          400: '#5C9DFB',
+          500: '#2D7FF9', // azul Leadrix (interação)
+          600: '#2266E6',
+          700: '#1A54BF',
+          800: '#12408F',
+          900: '#0D2F69',
+          950: '#081D42',
         },
         accent: {
-          50: '#f2f9e8',
-          100: '#e3f2ce',
-          200: '#cbe8a4',
-          300: '#aed86f',
-          400: '#97cd4f',
-          500: '#8dc63f', // Verde Consulcard
-          600: '#6fa62c',
-          700: '#567f24',
-          800: '#456420',
-          900: '#3a531e',
+          50: '#EEF8EE',
+          100: '#DDF2DC',
+          200: '#BDE5BC',
+          300: '#8FD68D',
+          400: '#66C264',
+          500: '#48AD46', // verde da marca
+          600: '#3A9438',
+          700: '#2E7A2C',
+          800: '#265F25',
+          900: '#1F4D1E',
         },
         ink: {
-          50: '#f5f7f8',
-          100: '#eaedf0',
-          200: '#d4dae0',
-          300: '#aab4bf',
-          400: '#7e8b99',
-          500: '#5c6875',
-          600: '#48535e',
-          700: '#3b4550',
-          800: '#354454', // alinhado ao Azul Consulcard
-          900: '#232d37',
-          950: '#161d24',
+          50: '#F6F6F4',
+          100: '#ECECEA',
+          200: '#DADAD6',
+          300: '#BEBEB9',
+          400: '#9A9A94',
+          500: '#74746F',
+          600: '#52524F',
+          700: '#3A3A38',
+          800: '#2A2A28',
+          900: '#1D1D1B', // preto Leadrix
+          950: '#0E0E0D',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+        sans: ['Manrope', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+        display: ['Jost', 'Century Gothic', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
     },
   },

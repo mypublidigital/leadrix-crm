@@ -5,6 +5,10 @@ import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import OpportunityModal from '../components/OpportunityModal'
 import { ThermometerBadge } from '../components/Badge'
+import SegmentFilters, { oppMatches, PillarBadge } from '../components/SegmentFilters'
+import { opportunityAgingState } from '../lib/abm'
+import { useSalesCost } from '../lib/hooks'
+import { triggerEmailEvent } from '../lib/messaging'
 import {
   listAccounts, listAllAccountServices, listLostReasons, listRoster,
   moveOpportunityStage, closeAndHandoff,
@@ -24,6 +28,9 @@ function HandoffModal({ opportunity, account, onClose }) {
   const [size, setSize] = useState(account?.account_size || '')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
+  // `fired` diz ao pai se a oportunidade foi realmente fechada — cancelar o
+  // modal não deve disparar o e-mail de fechamento.
+  const fired = Boolean(result)
 
   async function fire() {
     setBusy(true)
@@ -42,7 +49,7 @@ function HandoffModal({ opportunity, account, onClose }) {
 
   if (result) {
     return (
-      <Modal title="Handoff disparado" onClose={onClose} footer={<button className="btn-primary" onClick={onClose}>Fechar</button>}>
+      <Modal title="Oportunidade fechada" onClose={() => onClose(true)} footer={<button className="btn-primary" onClick={() => onClose(true)}>Fechar</button>}>
         <div className="flex flex-col items-center gap-3 py-4 text-center">
           <CheckCircle2 size={40} className="text-emerald-500" />
           <p className="text-sm text-ink-700">Oportunidade fechada {result.simulated && '(handoff simulado em modo demo)'}.</p>
@@ -57,18 +64,19 @@ function HandoffModal({ opportunity, account, onClose }) {
   }
 
   return (
-    <Modal title={`Fechar — ${opportunity.service?.name || ''} · ${account?.name || ''}`} onClose={onClose}
+    <Modal title={`Fechar — ${opportunity.service?.name || ''} · ${account?.name || ''}`} onClose={() => onClose(fired)}
       footer={<>
-        <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+        <button className="btn-ghost" onClick={() => onClose(fired)}>Cancelar</button>
         <button className="btn-primary" onClick={fire} disabled={busy || !managerEmail}>{busy ? 'Enviando…' : 'Fechar e disparar handoff'}</button>
       </>}>
       <p className="mb-4 rounded-lg bg-brand-50 p-3 text-xs text-ink-600">
-        A oportunidade vai para <b>Fechado (100%)</b> e o CRM dispara o onboarding para o Consulcard Projetos (HMAC).
+        A oportunidade vai para <b>Fechado (100%)</b>. Se houver um sistema de projetos configurado, o CRM envia o projeto
+        (HMAC); sem ele, o envio fica registrado como pendente.
       </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="label">Gerente Consulcard (e-mail) *</label>
-          <input className="input" placeholder="joao.sales@consulcard.com.br" value={managerEmail} onChange={(e) => setManagerEmail(e.target.value)} />
+          <label className="label">Responsável pela entrega na Leadrix (e-mail) *</label>
+          <input className="input" placeholder="nome@leadrix.com.br" value={managerEmail} onChange={(e) => setManagerEmail(e.target.value)} />
         </div>
         <div><label className="label">Segmento</label>
           <select className="input" value={segment} onChange={(e) => setSegment(e.target.value)}>
@@ -142,8 +150,10 @@ function initials(nameOrEmail) {
 export default function Pipeline() {
   const qc = useQueryClient()
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: listAccounts })
-  const { data: opportunities = [] } = useQuery({ queryKey: ['all-account-services'], queryFn: listAllAccountServices })
+  const { data: allOpportunities = [] } = useQuery({ queryKey: ['all-account-services'], queryFn: listAllAccountServices })
   const { data: roster = [] } = useQuery({ queryKey: ['roster'], queryFn: listRoster })
+  const { data: settings } = useSalesCost()
+  const [seg, setSeg] = useState({ segment: '', micro: '', pillar: '' })
 
   const [refDate, setRefDate] = useState(new Date().toISOString().slice(0, 10))
   const [handoff, setHandoff] = useState(null)
@@ -155,11 +165,25 @@ export default function Pipeline() {
 
   const accountById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts])
   const rosterById = useMemo(() => new Map(roster.map((u) => [u.id, u])), [roster])
+  const opportunities = useMemo(
+    () => allOpportunities.filter((o) => oppMatches(o, accountById.get(o.account_id), seg)),
+    [allOpportunities, accountById, seg],
+  )
 
   const { stages, totals } = useMemo(() => pipelineByStage(opportunities), [opportunities])
   const maxPotential = Math.max(1, ...stages.map((s) => s.potential))
 
   const oppLabel = (o) => `${o.service?.name || o.service_id} · ${accountById.get(o.account_id)?.name || ''}`
+
+  // Mudança de etapa é um evento da mensageria: se houver modelo para a etapa,
+  // a mensagem entra na fila (automático) ou como rascunho para revisão.
+  async function notifyStage(opp, toStage) {
+    await triggerEmailEvent(`etapa_${toStage}`, {
+      account: accountById.get(opp.account_id),
+      opportunity: opp,
+    })
+    qc.invalidateQueries({ queryKey: ['email-messages'] })
+  }
 
   async function applyStage(opp, toStage) {
     if (toStage === opp.stage) return
@@ -167,6 +191,7 @@ export default function Pipeline() {
     if (toStage === 'standby') return setStandby({ opportunity: opp })
     if (toStage === 'perdido') return setLost({ opportunity: opp })
     await moveOpportunityStage(opp.id, toStage)
+    await notifyStage(opp, toStage)
     qc.invalidateQueries({ queryKey: ['all-account-services'] })
   }
 
@@ -184,6 +209,9 @@ export default function Pipeline() {
 
       <div className="space-y-5 p-6">
         {/* Data de referência */}
+        <div className="card grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
+          <SegmentFilters value={seg} onChange={setSeg} />
+        </div>
         <div className="card flex flex-wrap items-center gap-4 p-3">
           <label className="flex items-center gap-2 text-sm font-medium text-ink-700">
             <CalendarClock size={16} className="text-brand-500" /> Data de referência
@@ -254,6 +282,7 @@ export default function Pipeline() {
                     const acc = accountById.get(o.account_id)
                     const owner = o.owner_id ? rosterById.get(o.owner_id) : null
                     const dStage = daysSince(o.stage_entered_at || o.created_at)
+                    const ag = ['fechado', 'perdido'].includes(stage) ? null : opportunityAgingState(o, settings)
                     return (
                       <div key={o.id} draggable
                         onDragStart={() => setDragId(o.id)}
@@ -265,6 +294,7 @@ export default function Pipeline() {
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-sm font-semibold text-ink-900">{acc?.name || '—'}</div>
                             <div className="truncate text-xs text-ink-500">{o.service?.name || o.service_id}</div>
+                            {o.service?.macro_id && <div className="mt-1"><PillarBadge id={o.service.macro_id} /></div>}
                             <div className="mt-1 text-sm font-bold text-brand-500">{formatBRL(o.estimated_value_brl)}</div>
                             <div className="mt-1 flex items-center justify-between gap-1">
                               <ThermometerBadge value={o.commercial_temp} />
@@ -275,8 +305,9 @@ export default function Pipeline() {
                                 </span>
                               )}
                             </div>
-                            <div className={`mt-1 inline-flex items-center gap-1 text-[11px] ${dStage > 30 ? 'font-semibold text-rose-600' : 'text-ink-400'}`}>
+                            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-500">
                               <Clock size={10} /> {dStage ?? 0} d na etapa
+                              {ag && ag.level.key !== 'no_prazo' && <span className={`chip px-1.5 py-0 text-[10px] ${ag.level.color}`}>{ag.level.label}</span>}
                             </div>
                             {stage === 'standby' && o.standby_review_date && (
                               <div className="text-[11px] text-violet-600">revisar {o.standby_review_date}</div>
@@ -300,9 +331,17 @@ export default function Pipeline() {
         <p className="text-center text-xs text-ink-400">Arraste um card para mudar de etapa (o histórico de aging é registrado), ou clique para ver o detalhe.</p>
       </div>
 
-      {handoff && <HandoffModal opportunity={handoff.opportunity} account={handoff.account} onClose={() => { setHandoff(null); refreshOpps() }} />}
-      {standby && <StandbyModal opportunity={standby.opportunity} label={oppLabel(standby.opportunity)} onClose={() => setStandby(null)} onDone={() => { setStandby(null); refreshOpps() }} />}
-      {lost && <LostModal opportunity={lost.opportunity} label={oppLabel(lost.opportunity)} onClose={() => setLost(null)} onDone={() => { setLost(null); refreshOpps() }} />}
+      {handoff && (
+        <HandoffModal
+          opportunity={handoff.opportunity}
+          account={handoff.account}
+          onClose={async (fired) => { if (fired) await notifyStage(handoff.opportunity, 'fechado'); setHandoff(null); refreshOpps() }}
+        />
+      )}
+      {standby && <StandbyModal opportunity={standby.opportunity} label={oppLabel(standby.opportunity)} onClose={() => setStandby(null)}
+        onDone={async () => { await notifyStage(standby.opportunity, 'standby'); setStandby(null); refreshOpps() }} />}
+      {lost && <LostModal opportunity={lost.opportunity} label={oppLabel(lost.opportunity)} onClose={() => setLost(null)}
+        onDone={async () => { await notifyStage(lost.opportunity, 'perdido'); setLost(null); refreshOpps() }} />}
       {detail && <OpportunityModal opportunity={detail} onClose={() => { setDetail(null); refreshOpps() }} />}
     </>
   )

@@ -1,53 +1,77 @@
-// Taxonomias e enums do CRM (alinhados ao briefing §6, §7, §8).
+// Taxonomias e enums do CRM Leadrix. Pilares e mercados moram em
+// src/data/leadrix.js; aqui ficam os domínios do funil e do cadastro.
+
+import { SEGMENT_LABELS } from '../data/leadrix'
 
 export const CLASSIFICATIONS = {
   cliente: { label: 'Cliente', color: 'bg-emerald-100 text-emerald-700' },
-  cliente_parceiro: { label: 'Cliente / Parceiro', color: 'bg-teal-100 text-teal-700' },
+  conta_alvo: { label: 'Conta-alvo (ICP)', color: 'bg-sky-100 text-sky-700' },
   parceiro: { label: 'Parceiro', color: 'bg-indigo-100 text-indigo-700' },
-  lead: { label: 'Lead histórico', color: 'bg-ink-100 text-ink-600' },
+  lead: { label: 'Lead', color: 'bg-ink-100 text-ink-600' },
 }
 
-// Conjunto de gestão ABM ativa (§4).
-export const ABM_ACTIVE = ['cliente', 'cliente_parceiro']
+// Conjunto de gestão ABM ativa: contas-alvo selecionadas e clientes em expansão.
+export const ABM_ACTIVE = ['cliente', 'conta_alvo']
 
-export const SEGMENTS = {
-  fintech: 'Fintech',
-  banco: 'Banco',
-  cooperativa: 'Cooperativa',
-  'instituicao-pagamento': 'Instituição de Pagamento',
-  'sociedade-credito': 'Sociedade de Crédito',
-  'nao-financeiro': 'Não-financeiro',
-}
+// Os quatro macrossegmentos da Leadrix. Os microssegmentos ficam numa tabela
+// editável (Config) ligada a estes ids.
+export const SEGMENTS = SEGMENT_LABELS
 
+// Porte por faturamento anual (faixas do BNDES, com recorte enterprise).
+// A Leadrix atende principalmente empresas médias e grandes.
 export const ACCOUNT_SIZES = {
-  seed: 'Seed (pré-operacional)',
-  pme: 'PME (<500 contas)',
-  'mid-market': 'Mid-market (500–50k)',
-  enterprise: 'Enterprise (50k+)',
+  pequena: 'Pequena (até R$ 4,8 mi/ano)',
+  media: 'Média (R$ 4,8 mi a 300 mi/ano)',
+  grande: 'Grande (R$ 300 mi a 1 bi/ano)',
+  enterprise: 'Enterprise (acima de R$ 1 bi/ano)',
 }
 
-// Como o lead chegou até a Consulcard (reunião 12/08). Quando é "Indicação",
-// o campo "Quem indicou" registra a pessoa/empresa que trouxe o lead.
+// Nível de ABM (modelo ITSMA / ABM Leadership Alliance). Define a intensidade
+// de personalização e o investimento aceitável por conta.
+export const ABM_TIERS = {
+  '1:1': { label: 'Nível 1 · 1:1 estratégico', short: 'N1 · 1:1', color: 'bg-brand-600 text-white', help: 'De 10 a 12 contas: pesquisa profunda, relacionamento com vários decisores e participação direta dos sócios.' },
+  '1:few': { label: 'Nível 2 · 1:few por problema', short: 'N2 · 1:few', color: 'bg-brand-100 text-brand-700', help: 'De 25 a 35 contas: campanhas organizadas por problema, segmento ou contexto semelhante.' },
+  '1:many': { label: 'Relacionamento · 1:many', short: '1:many', color: 'bg-ink-100 text-ink-600', help: 'Demais contas: relacionamento editorial, eventos e monitoramento até surgir sinal de intenção.' },
+}
+
+// Quem originou o lead (parceiro, empresa ou sócio). Diferente do canal de
+// origem: aqui é a fonte da indicação, que pode gerar comissão.
+export const LEAD_ORIGINATORS = {
+  boomit: 'Boomit',
+  mypubli: 'MyPubli',
+  carol: 'Carol',
+  marcelo: 'Marcelo',
+  edson: 'Edson',
+  cristiano: 'Cristiano',
+  outros: 'Outros (especificar)',
+}
+
+// Canal por onde o lead chegou (workshop, evento, inbound…). Quem originou a
+// indicação fica em LEAD_ORIGINATORS.
 export const LEAD_SOURCES = {
   indicacao: 'Indicação',
-  evento: 'Evento / feira',
+  workshop: 'Workshop gratuito / mensal Leadrix',
+  curso: 'Formação Executiva / curso',
+  evento: 'Evento / palestra',
   inbound: 'Inbound (site, conteúdo)',
-  prospeccao: 'Prospecção ativa',
+  linkedin: 'LinkedIn',
+  prospeccao: 'Prospecção ativa (ABM)',
   parceiro: 'Parceiro',
-  base_historica: 'Base histórica',
   outro: 'Outro',
 }
 
 // O que preencher em "Detalhes da origem" para cada origem. O campo é texto
 // livre — a dica só orienta, para a base não virar um amontoado de anotações
-// soltas ("veio de feira" vs. "Febraban Tech 2026").
+// soltas ("veio de workshop" vs. "Workshop mensal jan/26").
 export const LEAD_SOURCE_DETAIL_HINT = {
   indicacao: 'Em que contexto veio a indicação',
-  evento: 'Qual evento ou feira',
-  inbound: 'Qual canal ou campanha',
-  prospeccao: 'Qual lista, abordagem ou responsável',
+  workshop: 'Qual edição do workshop',
+  curso: 'Qual turma ou programa',
+  evento: 'Qual evento ou palestra',
+  inbound: 'Qual canal, conteúdo ou campanha',
+  linkedin: 'Qual post, campanha ou abordagem',
+  prospeccao: 'Qual lista, cluster ou responsável',
   parceiro: 'Qual parceiro',
-  base_historica: 'De qual base ou período',
   outro: 'Descreva a origem',
 }
 
@@ -64,10 +88,13 @@ export const CRM_STAGES = {
 // Ordem das colunas do kanban do pipeline.
 export const KANBAN_STAGES = ['lead', 'qualificado', 'proposta', 'negociacao', 'fechado', 'standby', 'perdido']
 
+// Etapas em que a oportunidade ainda está "viva" no funil.
+export const OPEN_STAGES = ['lead', 'qualificado', 'proposta', 'negociacao', 'standby']
+
 // A partir de qual etapa o link da proposta comercial fica disponível.
 export const PROPOSAL_LINK_FROM = ['proposta', 'negociacao', 'fechado', 'standby']
 
-// Termômetro comercial — substitui a antiga "Saúde". Probabilidade manual por conta.
+// Termômetro comercial. Probabilidade manual por oportunidade.
 export const THERMOMETER = {
   0: { label: '0% · Sem chance', short: '0%', color: 'bg-ink-400', text: 'text-ink-600', help: 'Sem condições de seguir no momento.' },
   50: { label: '50% · Em contato', short: '50%', color: 'bg-sky-400', text: 'text-sky-700', help: 'Em contato/andamento — conversa iniciada.' },
@@ -91,20 +118,27 @@ export const HEALTH = {
   vermelho: { label: 'Risco', color: 'bg-rose-500', text: 'text-rose-700' },
 }
 
+// Tipos de ação ABM. `hours` é a sugestão inicial de esforço por pessoa (o
+// valor efetivo fica editável em Config → Custo de venda).
 export const TASK_TYPES = {
-  landing_page: { label: 'Landing page', icon: 'Layout' },
-  podcast: { label: 'Podcast', icon: 'Mic' },
-  encontro: { label: 'Encontro', icon: 'Users' },
-  ligacao: { label: 'Ligação', icon: 'Phone' },
-  reuniao: { label: 'Reunião', icon: 'Video' },
-  almoco: { label: 'Almoço', icon: 'Utensils' },
-  evento: { label: 'Evento', icon: 'CalendarDays' },
-  viagem: { label: 'Viagem', icon: 'Plane' },
-  conteudo: { label: 'Conteúdo', icon: 'FileText' },
-  outro: { label: 'Outro', icon: 'Tag' },
+  ligacao: { label: 'Ligação', hours: 0.5 },
+  email: { label: 'E-mail personalizado', hours: 0.5 },
+  linkedin: { label: 'Toque no LinkedIn', hours: 0.25 },
+  reuniao: { label: 'Reunião', hours: 1.5 },
+  diagnostico: { label: 'Diagnóstico executivo', hours: 8 },
+  workshop: { label: 'Workshop / convite', hours: 4 },
+  almoco: { label: 'Almoço', hours: 2 },
+  jantar: { label: 'Jantar executivo', hours: 3 },
+  evento: { label: 'Evento', hours: 6 },
+  viagem: { label: 'Viagem / visita', hours: 8 },
+  conteudo: { label: 'Conteúdo personalizado', hours: 3 },
+  proposta: { label: 'Proposta / business case', hours: 6 },
+  brinde: { label: 'Envio físico / brinde', hours: 0.5 },
+  landing_page: { label: 'Landing page da conta', hours: 6 },
+  outro: { label: 'Outro', hours: 1 },
 }
 
-// Probabilidade de fechamento padrão por etapa do funil ABM (editável no futuro).
+// Probabilidade de fechamento padrão por etapa do funil ABM.
 // Alimenta a previsão de faturamento ponderada da visão financeira.
 export const STAGE_PROBABILITY = {
   lead: 0.1,
@@ -118,12 +152,13 @@ export const STAGE_PROBABILITY = {
 
 // Motivos de não-venda padrão (editáveis na tela de Configurações).
 export const DEFAULT_LOST_REASONS = [
-  'Preço acima do orçamento',
-  'Sem budget no momento',
-  'Escolheu concorrente',
-  'Projeto adiado pelo cliente',
-  'Sem fit técnico/regulatório',
-  'Decisor mudou de prioridade',
+  'Sem orçamento no momento',
+  'Preço acima do esperado',
+  'Preferiu fazer internamente',
+  'Escolheu outro fornecedor / ferramenta',
+  'Prioridade mudou (projeto adiado)',
+  'Sem patrocinador executivo',
+  'Receio de risco, segurança ou LGPD',
   'Sem resposta / esfriou',
   'Outro',
 ]
@@ -141,6 +176,7 @@ export const BILLING_MODELS = {
   milestone: 'Por marcos (milestone)',
   monthly: 'Mensal (recorrente)',
   fixed: 'Fixo (à vista)',
+  per_seat: 'Por participante (educação)',
 }
 
 export function formatBRL(value) {
@@ -152,17 +188,18 @@ export function formatBRL(value) {
   }).format(value)
 }
 
+export function formatPct(value, digits = 0) {
+  if (value == null || !isFinite(value)) return '—'
+  return `${(value * 100).toLocaleString('pt-BR', { maximumFractionDigits: digits, minimumFractionDigits: digits })}%`
+}
+
 // `color` = classes do badge (fundo claro + texto). `chart` = preenchimento
-// sólido para gráficos, na MESMA família de cor do badge (identidade consistente
-// entre a lista e o gráfico), porém em passos próprios de visualização.
+// sólido para gráficos, na MESMA família de cor do badge.
 //
-// A paleta `chart` foi validada (não escolhida no olho) contra a superfície
-// branca do card, no modo all-pairs — num gráfico de pizza o leitor compara
-// fatias não vizinhas: faixa de luminosidade PASS, separação sob
-// protanopia/deuteranopia ΔE 8.5 (alvo ≥ 8) e piso de visão normal ΔE 16.5
-// (piso ≥ 15). "Backlog" é cinza de propósito ("ainda não começou") — é a
-// única cor abaixo do piso de croma, e por isso os gráficos sempre exibem
-// rótulo + quantidade + percentual em texto, nunca a cor sozinha.
+// A paleta `chart` foi validada contra a superfície branca do card, no modo
+// all-pairs. "Backlog" é cinza de propósito ("ainda não começou") — por isso os
+// gráficos sempre exibem rótulo + quantidade + percentual em texto, nunca a cor
+// sozinha.
 export const TASK_STATUS = {
   backlog: { label: 'Backlog', color: 'bg-ink-100 text-ink-600', chart: '#aab4bf' },
   planejada: { label: 'Planejada', color: 'bg-sky-100 text-sky-700', chart: '#0369a1' },

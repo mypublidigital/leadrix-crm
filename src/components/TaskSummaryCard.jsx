@@ -14,7 +14,7 @@ import { TASK_TYPES, TASK_STATUS } from '../lib/constants'
 //   fatia com sua cor de estado + legenda com quantidade e percentual.
 // • "Clientes com tarefas" é um número único → cartão de número, não gráfico.
 
-const PLOT_COLOR = '#354454' // Azul Consulcard — série única das barras
+const PLOT_COLOR = '#2D7FF9' // Azul Leadrix — série única das barras
 const pctOf = (n, total) => (total ? Math.round((n / total) * 100) : 0)
 
 // ── Rosca (status) ──────────────────────────────────────────────

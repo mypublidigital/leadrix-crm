@@ -7,11 +7,12 @@ import { ClassificationBadge, ThermometerBadge, StageBadge } from '../components
 import InfoTip from '../components/InfoTip'
 import BulkTaskModal from '../components/BulkTaskModal'
 import AccountEditModal from '../components/AccountEditModal'
+import SegmentFilters, { MarketBadge } from '../components/SegmentFilters'
 import { listAccounts, listAllAccountServices, listServices, listRoster } from '../lib/data'
 import { accountConsolidatedTemp } from '../lib/finance'
 import {
   CLASSIFICATIONS,
-  SEGMENTS,
+  ABM_TIERS,
   ACCOUNT_SIZES,
   CRM_STAGES,
   THERMOMETER,
@@ -69,7 +70,8 @@ export default function AccountsList() {
 
   const [q, setQ] = useState('')
   const [classification, setClassification] = useState('')
-  const [segment, setSegment] = useState('')
+  const [seg, setSeg] = useState({ segment: '', micro: '', pillar: '' })
+  const [tier, setTier] = useState('')
   const [size, setSize] = useState('')
   const [temp, setTemp] = useState('')
   const [stage, setStage] = useState('')
@@ -97,12 +99,13 @@ export default function AccountsList() {
   }, [accountServices])
 
   const oppInfo = useMemo(() => {
-    const m = new Map() // account_id -> {temp, stages:Set, topStage, hasProposal}
+    const m = new Map() // account_id -> {temp, stages:Set, pillars:Set, topStage, hasProposal}
     const order = Object.keys(CRM_STAGES)
     accountServices.forEach((o) => {
-      if (!m.has(o.account_id)) m.set(o.account_id, { stages: new Set(), hasProposal: false, topStage: null })
+      if (!m.has(o.account_id)) m.set(o.account_id, { stages: new Set(), pillars: new Set(), hasProposal: false, topStage: null })
       const e = m.get(o.account_id)
       e.stages.add(o.stage)
+      if (o.service?.macro_id && o.stage !== 'perdido') e.pillars.add(o.service.macro_id)
       if (o.proposal_link) e.hasProposal = true
       if (o.stage !== 'perdido') {
         if (!e.topStage || order.indexOf(o.stage) > order.indexOf(e.topStage)) e.topStage = o.stage
@@ -138,9 +141,12 @@ export default function AccountsList() {
     return accounts.filter((a) => {
       if (q && !a.name.toLowerCase().includes(q.toLowerCase())) return false
       if (classification && a.classification !== classification) return false
-      if (segment && a.segment !== segment) return false
+      if (seg.segment && a.segment !== seg.segment) return false
+      if (seg.micro && a.micro_segment !== seg.micro) return false
+      if (tier && a.abm_tier !== tier) return false
       if (size && a.account_size !== size) return false
       const info = oppInfo.get(a.id)
+      if (seg.pillar && !info?.pillars?.has(seg.pillar)) return false
       if (temp !== '' && String(info?.temp ?? '') !== String(temp)) return false
       if (stage && !info?.stages?.has(stage)) return false
       if (cargo && !(a.contacts || []).some((c) => c.role === cargo)) return false
@@ -152,7 +158,7 @@ export default function AccountsList() {
       if (abmOnly && !ABM_ACTIVE.includes(a.classification)) return false
       return true
     })
-  }, [accounts, q, classification, segment, size, temp, stage, cargo, proposalStatus, serviceId, leadSource, originDetails, abmOnly, svcByAccount, oppInfo])
+  }, [accounts, q, classification, seg, tier, size, temp, stage, cargo, proposalStatus, serviceId, leadSource, originDetails, abmOnly, svcByAccount, oppInfo])
 
   const counts = useMemo(() => {
     const c = { total: accounts.length, abm: 0 }
@@ -205,7 +211,9 @@ export default function AccountsList() {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Select label="Classificação" value={classification} onChange={setClassification} allLabel="Todas"
               options={Object.entries(CLASSIFICATIONS).map(([k, v]) => [k, v.label])} />
-            <Select label="Segmento" value={segment} onChange={setSegment} allLabel="Todos" options={Object.entries(SEGMENTS)} />
+            <SegmentFilters value={seg} onChange={setSeg} />
+            <Select label="Nível ABM" value={tier} onChange={setTier} allLabel="Todos"
+              options={Object.entries(ABM_TIERS).map(([k, v]) => [k, v.label])} />
             <Select label="Porte" value={size} onChange={setSize} allLabel="Todos" options={Object.entries(ACCOUNT_SIZES)} />
             <Select label="Etapa do funil" value={stage} onChange={setStage} allLabel="Todas"
               options={Object.entries(CRM_STAGES).map(([k, v]) => [k, v.label])} />
@@ -256,6 +264,7 @@ export default function AccountsList() {
                     <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 rounded border-ink-300 text-brand-500" />
                   </th>
                   <th className="px-4 py-3">Conta</th>
+                  <th className="px-4 py-3">Mercado</th>
                   <th className="px-4 py-3">Classificação</th>
                   <th className="px-4 py-3">
                     <span className="inline-flex items-center gap-1">
@@ -291,7 +300,13 @@ export default function AccountsList() {
                         <span>{a.name}{a.site && <span className="ml-1 inline-flex items-center text-ink-400"><ExternalLink size={12} /></span>}</span>
                       </Link>
                     </td>
-                    <td className="px-4 py-3"><ClassificationBadge value={a.classification} /></td>
+                    <td className="px-4 py-3"><MarketBadge id={a.segment} micro={a.micro_segment} /></td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <ClassificationBadge value={a.classification} />
+                        {a.abm_tier && <span className={`chip ${ABM_TIERS[a.abm_tier]?.color}`} title={ABM_TIERS[a.abm_tier]?.help}>{ABM_TIERS[a.abm_tier]?.short}</span>}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       {oppInfo.get(a.id)?.topStage ? <StageBadge value={oppInfo.get(a.id).topStage} /> : <span className="text-xs text-ink-400">—</span>}
                     </td>
@@ -305,7 +320,7 @@ export default function AccountsList() {
                   </tr>
                 ))}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-ink-500">Nenhuma conta com os filtros atuais.</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-ink-500">Nenhuma conta com os filtros atuais.</td></tr>
                 )}
               </tbody>
             </table>

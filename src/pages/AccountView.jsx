@@ -15,10 +15,21 @@ import AccountEditModal from '../components/AccountEditModal'
 import CopilotChat from '../components/CopilotChat'
 import { ClassificationBadge, StageBadge, StatusBadge, ThermometerBadge } from '../components/Badge'
 import OpportunityModal from '../components/OpportunityModal'
+import AccountCostPanel from '../components/AccountCostPanel'
+import AbmSuggestionCard from '../components/AbmSuggestionCard'
+import { IcpPanel, SignalsPanel, TimelinePanel } from '../components/AccountAbmPanels'
+import { PillarBadge } from '../components/SegmentFilters'
+import { useAuth } from '../lib/useAuth'
+import { useEmailMessages, useContents } from '../lib/hooks'
+import { CAMPAIGNS } from '../data/abmContext'
+import { LEAD_ORIGINATORS } from '../lib/constants'
 import { getAccount, saveStrategy, removeAccountService, addInteraction } from '../lib/data'
 import { accountConsolidatedTemp } from '../lib/finance'
 import { idadeNoAno } from '../lib/birthdays'
-import { SEGMENTS, ACCOUNT_SIZES, LEAD_SOURCES, formatBRL } from '../lib/constants'
+import { suggestForOpportunity, committeeCoverage } from '../lib/abm'
+import { useTasks, useDismissals, useSalesCost } from '../lib/hooks'
+import { ENTRY_DOORS } from '../data/leadrix'
+import { SEGMENTS, ACCOUNT_SIZES, LEAD_SOURCES, ABM_TIERS, formatBRL } from '../lib/constants'
 
 function Section({ icon: Icon, title, action, children }) {
   return (
@@ -37,8 +48,12 @@ function Section({ icon: Icon, title, action, children }) {
 
 // Estratégia ABM como caderno de anotações.
 const STRATEGY_FIELDS = [
+  ['hypothesis', 'Hipótese de valor', 'Onde esta empresa perde margem, capacidade, qualidade, velocidade ou receita porque a operação ainda não incorporou IA?'],
+  ['affected_indicator', 'Indicador afetado', 'Qual indicador prova a hipótese (ex.: horas por entrega, custo por processo)?'],
+  ['entry_offer', 'Oferta de entrada', 'Qual entrega de menor risco abre a conta (diagnóstico, workshop, piloto)?'],
+  ['expansion_plan', 'Plano de expansão', 'Por quais pilares a conta cresce depois da primeira entrega?'],
   ['objective', 'Objetivo da conta', 'O que queremos alcançar com esta conta?'],
-  ['value_proposition', 'Proposta de valor', 'Por que a Consulcard é a melhor escolha aqui?'],
+  ['value_proposition', 'Proposta de valor', 'Por que a Leadrix é a melhor escolha aqui? Qual indicador vamos mover?'],
   ['key_messages', 'Mensagens-chave', 'Pontos que devem aparecer em todos os toques.'],
   ['decision_makers', 'Decisores e influenciadores', 'Quem decide, quem influencia, quem usa.'],
   ['channels', 'Canais de relacionamento', 'Onde e como vamos tocar a conta.'],
@@ -128,6 +143,12 @@ export default function AccountView() {
   const { id } = useParams()
   const qc = useQueryClient()
   const { data: a, isLoading, error } = useQuery({ queryKey: ['account', id], queryFn: () => getAccount(id) })
+  const { data: allTasks = [] } = useTasks()
+  const { data: dismissals = [] } = useDismissals()
+  const { data: settings } = useSalesCost()
+  const { data: emails = [] } = useEmailMessages(id)
+  const { data: allContents = [] } = useContents()
+  const { can } = useAuth()
 
   const [taskModal, setTaskModal] = useState(null)
   const [strategyModal, setStrategyModal] = useState(false)
@@ -147,6 +168,11 @@ export default function AccountView() {
     .reduce((sum, o) => sum + (Number(o.estimated_value_brl) || 0), 0)
   // Termômetro consolidado: maior termômetro entre as oportunidades abertas.
   const consolidatedTemp = accountConsolidatedTemp(a.id, opportunities)
+  const suggestions = opportunities
+    .map((o) => suggestForOpportunity(o, { account: a, tasks: allTasks, dismissals, settings }))
+    .filter(Boolean)
+    .sort((x, y) => y.score - x.score)
+  const coverage = committeeCoverage(a)
 
   async function delService(asId) {
     await removeAccountService(asId)
@@ -183,7 +209,14 @@ export default function AccountView() {
                 <a href={a.site.startsWith('http') ? a.site : `https://${a.site}`} target="_blank" rel="noreferrer"
                   className="inline-flex items-center gap-1 text-brand-600 hover:underline"><Globe size={14} /> {a.site}</a>
               ) : '—'}</Row>
-              <Row label="Segmento">{SEGMENTS[a.segment] || '—'}</Row>
+              <Row label="Mercado">{SEGMENTS[a.segment] || '—'}</Row>
+              <Row label="Microssegmento">{a.micro_segment || '—'}</Row>
+              <Row label="Nível ABM">
+                {a.abm_tier
+                  ? <span className={`chip ${ABM_TIERS[a.abm_tier]?.color}`} title={ABM_TIERS[a.abm_tier]?.help}>{ABM_TIERS[a.abm_tier]?.label}</span>
+                  : '—'}
+              </Row>
+              <Row label="Porta de entrada">{ENTRY_DOORS[a.entry_door]?.label || '—'}</Row>
               <Row label="Porte">{ACCOUNT_SIZES[a.account_size] || '—'}</Row>
               <Row label="Termômetro">
                 <span className="flex items-center gap-2">
@@ -192,25 +225,39 @@ export default function AccountView() {
                 </span>
               </Row>
               <Row label="Origem do lead">
+                {a.origin_source
+                  ? <span className="chip bg-accent-100 text-accent-800">
+                      {a.origin_source === 'outros' ? (a.origin_source_other || 'Outros') : LEAD_ORIGINATORS[a.origin_source]}
+                    </span>
+                  : '—'}
+              </Row>
+              <Row label="Comissão de indicação">
+                {a.referral_commission
+                  ? <span className="font-semibold text-ink-900">Sim · {Number(a.referral_commission_pct || 0).toLocaleString('pt-BR')}% do valor ganho</span>
+                  : 'Não'}
+              </Row>
+              <Row label="Campanha">{CAMPAIGNS[a.campaign]?.label || '—'}</Row>
+              <Row label="Canal de origem">
                 {a.lead_source
                   ? <span className="chip bg-brand-50 text-brand-700">{LEAD_SOURCES[a.lead_source] || a.lead_source}</span>
                   : '—'}
               </Row>
-              <Row label="Detalhes da origem">{a.origin_details || '—'}</Row>
+              <Row label="Detalhes do canal">{a.origin_details || '—'}</Row>
               <Row label="Quem indicou">{a.referred_by || '—'}</Row>
-              <Row label="Status (base)">{a.status_base || '—'}</Row>
-              <Row label="Anos de relacionamento">{(a.relationship_years || []).join(', ') || '—'}</Row>
-              <Row label="Macro categorias">
-                <div className="flex flex-wrap gap-1">
-                  {(a.macro_categories || []).map((t) => <span key={t} className="chip bg-ink-100 text-ink-600">{t}</span>)}
-                  {(a.macro_categories || []).length === 0 && '—'}
-                </div>
-              </Row>
               <Row label="Observações">{a.observations || '—'}</Row>
             </dl>
           </Section>
 
-          <Section icon={User} title={`Contatos (${(a.contacts || []).length})`} action={<button className="btn-ghost text-xs" onClick={() => setEditModal(true)}>Editar</button>}>
+          <Section icon={User} title={`Comitê de compra (${(a.contacts || []).length})`} action={<button className="btn-ghost text-xs" onClick={() => setEditModal(true)}>Editar</button>}>
+            {coverage.personas.length > 0 && (
+              <div className="mb-3 rounded-lg bg-ink-50 p-2.5 text-xs text-ink-600">
+                <div className="mb-1 font-semibold">Personas típicas do mercado ({coverage.covered.length}/{coverage.personas.length} cobertas)</div>
+                <div className="flex flex-wrap gap-1">
+                  {coverage.covered.map((p) => <span key={p} className="chip bg-accent-100 text-accent-800">{p}</span>)}
+                  {coverage.missing.map((p) => <span key={p} className="chip border border-dashed border-ink-300 bg-white text-ink-500">{p}</span>)}
+                </div>
+              </div>
+            )}
             <ul className="space-y-3">
               {(a.contacts || []).map((c, i) => (
                 <li key={i} className="border-b border-ink-100 pb-3 last:border-0 last:pb-0">
@@ -237,21 +284,44 @@ export default function AccountView() {
             </ul>
           </Section>
 
-          <Section icon={FileText} title={`Propostas históricas (${(a.proposals || []).length})`}>
-            <ul className="space-y-2">
-              {(a.proposals || []).map((p, i) => (
-                <li key={i} className="rounded-lg border border-ink-100 p-2.5 text-sm">
-                  {p.ref && <span className="chip mb-1 bg-ink-100 font-mono text-ink-600">{p.ref}</span>}
-                  <div className="text-ink-700">{p.title || '—'}</div>
-                </li>
-              ))}
-              {(a.proposals || []).length === 0 && <li className="text-sm text-ink-400">Nenhuma proposta no histórico.</li>}
-            </ul>
-          </Section>
+          <IcpPanel account={a} />
+
+          {can('costs.view') && <AccountCostPanel account={a} opportunities={opportunities} />}
+
+          {(a.proposals || []).length > 0 && (
+            <Section icon={FileText} title={`Propostas históricas (${a.proposals.length})`}>
+              <ul className="space-y-2">
+                {a.proposals.map((p, i) => (
+                  <li key={i} className="rounded-lg border border-ink-100 p-2.5 text-sm">
+                    {p.ref && <span className="chip mb-1 bg-ink-100 font-mono text-ink-600">{p.ref}</span>}
+                    <div className="text-ink-700">{p.title || '—'}</div>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
         </div>
 
         {/* Coluna central */}
         <div className="space-y-5">
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="eyebrow">Ações ABM sugeridas</h2>
+              <Link to="/radar" className="text-xs text-brand-600 hover:underline">Radar ABM</Link>
+            </div>
+            {suggestions.length ? (
+              <div className="space-y-2">
+                {suggestions.map((s, i) => (
+                  <AbmSuggestionCard key={s.opp.id} suggestion={s} settings={settings} showAccount={false} defaultOpen={i === 0} />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed border-ink-300 p-3 text-sm text-ink-500">
+                Nenhuma oportunidade pedindo ação agora. As sugestões aparecem quando o aging passa do SLA da etapa.
+              </p>
+            )}
+          </div>
+
           <Section icon={Target} title="Estratégia ABM"
             action={<button className="btn-ghost text-xs" onClick={() => setStrategyModal(true)}>{hasStrategy ? 'Editar' : 'Definir'}</button>}>
             {hasStrategy ? (
@@ -281,18 +351,22 @@ export default function AccountView() {
                     <button className="flex w-full items-center justify-between gap-2 text-left" onClick={() => setOppModal(o)}>
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium text-ink-900">{o.service?.name || o.service_id}</div>
-                        <div className="mt-0.5 flex items-center gap-1.5">
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                          {o.service?.macro_id && <PillarBadge id={o.service.macro_id} />}
                           <StageBadge value={o.stage} />
                           <ThermometerBadge value={o.commercial_temp} />
                         </div>
                       </div>
                       <span className="shrink-0 text-sm font-semibold text-brand-500">{formatBRL(o.estimated_value_brl)}</span>
                     </button>
-                    <div className="mt-1 flex justify-end">
-                      <button className="rounded p-1 text-ink-300 hover:bg-rose-50 hover:text-rose-500" onClick={() => delService(o.id)}>
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                    {can('opportunity.delete') && (
+                      <div className="mt-1 flex justify-end">
+                        <button className="rounded p-1 text-ink-300 hover:bg-rose-50 hover:text-rose-500"
+                          onClick={() => delService(o.id)} title="Excluir oportunidade (só administradores)">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -303,32 +377,25 @@ export default function AccountView() {
             )}
           </Section>
 
-          <Section icon={CalendarRange} title="Timeline de tarefas"
-            action={<button className="btn-ghost text-xs" onClick={() => setTaskModal({ new: true })}><Plus size={14} /> Tarefa</button>}>
-            {(a.tasks || []).length ? (
-              <ul className="space-y-2">
-                {a.tasks.slice().sort((x, y) => (x.scheduled_date || '').localeCompare(y.scheduled_date || '')).map((t) => (
-                  <li key={t.id}>
-                    <button onClick={() => setTaskModal({ task: t })}
-                      className="flex w-full items-center gap-2.5 rounded-lg border border-ink-100 p-2.5 text-left hover:bg-ink-50">
-                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-ink-100 text-ink-500"><TaskTypeIcon type={t.task_type} size={14} /></span>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-ink-900">{t.title}</div>
-                        <div className="text-xs text-ink-400">{t.scheduled_date || 'sem data'}</div>
-                      </div>
-                      <StatusBadge value={t.status} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-ink-400">Nenhuma tarefa ainda.</p>
-            )}
-          </Section>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="eyebrow">Relacionamento</h2>
+            <button className="btn-outline py-1 text-xs" onClick={() => setTaskModal({ new: true })}><Plus size={14} /> Nova ação ABM</button>
+          </div>
+          <TimelinePanel
+            account={a}
+            tasks={a.tasks || []}
+            interactions={a.interactions || []}
+            emails={emails}
+            opportunities={opportunities}
+            contents={allContents.filter((c) => c.account_id === a.id)}
+            onOpenTask={(taskId) => setTaskModal({ task: (a.tasks || []).find((t) => t.id === taskId) })}
+          />
         </div>
 
         {/* Coluna direita */}
         <div className="space-y-5">
+          <SignalsPanel account={a} strategy={strategy} onEditStrategy={() => setStrategyModal(true)} />
+
           <CopilotChat account={a} />
 
           <Section icon={History} title="Interações"

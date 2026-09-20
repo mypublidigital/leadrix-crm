@@ -1,6 +1,6 @@
 # Configuração do projeto Supabase do CRM (para a Supabase CLI).
 # project_id é só um rótulo local; o ref real é definido no `supabase link`.
-project_id = "consulcard-crm"
+project_id = "leadrix-crm"
 
 [functions.crm-handoff]
 verify_jwt = true    # chamado pelo app autenticado (envia HMAC ao operacional)
@@ -22,3 +22,9 @@ verify_jwt = true    # captura de leads por foto (pré-CRM), usuário autenticad
 
 [functions.catalog]
 verify_jwt = false   # autorizado por X-Catalog-Key (operacional) ou JWT (teste)
+
+[functions.crm-content]
+verify_jwt = true    # geração de conteúdo ABM, usuário autenticado
+
+[functions.crm-email]
+verify_jwt = true    # envio de e-mail ao lead, usuário autenticado

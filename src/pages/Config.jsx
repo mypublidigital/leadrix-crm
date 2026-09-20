@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { UserPlus, KeyRound, Trash2, Plus, Briefcase, Users, XCircle, ShieldCheck, RefreshCw } from 'lucide-react'
+import { UserPlus, KeyRound, Trash2, Plus, Briefcase, Users, XCircle, ShieldCheck, RefreshCw, Layers } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import {
   listUsers, createUser, resetUserPassword, removeUser, setUserAdmin,
   listLostReasons, addLostReason, removeLostReason,
   listServices, createService, testCatalog,
+  addMicroSegment, removeMicroSegment,
 } from '../lib/data'
+import SalesCostSettings from '../components/SalesCostSettings'
+import { useMicroSegments } from '../lib/hooks'
+import { MARKETS, MARKET_IDS } from '../data/leadrix'
 import { DEMO_MODE } from '../lib/data'
 import { useAuth } from '../lib/useAuth'
 
@@ -196,7 +200,7 @@ function ServicesCard() {
   const qc = useQueryClient()
   const { data: services = [] } = useQuery({ queryKey: ['services'], queryFn: listServices })
   const macros = servicesByMacro(SERVICES_CATALOG)
-  const [f, setF] = useState({ macro_id: macros[0].macro_id, name: '', service_id: '', complexity: 3, suggested_value_brl: 100000, anchor: false })
+  const [f, setF] = useState({ macro_id: macros[0].macro_id, name: '', service_id: '', complexity: 3, suggested_value_brl: '', anchor: false })
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
 
   async function add() {
@@ -207,7 +211,7 @@ function ServicesCard() {
     setF((p) => ({ ...p, name: '', service_id: '' }))
   }
   return (
-    <Card icon={Briefcase} title="Serviços" desc={`Catálogo com ${services.length} serviços. Cadastre novos serviços com valor sugerido.`}>
+    <Card icon={Briefcase} title="Serviços (4 pilares)" desc={`Catálogo com ${services.length} serviços organizados pelos quatro pilares. Cadastre novos serviços com valor sugerido.`}>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <select className="input" value={f.macro_id} onChange={set('macro_id')}>
           {macros.map((m) => <option key={m.macro_id} value={m.macro_id}>{m.macro_label}</option>)}
@@ -228,9 +232,63 @@ function ServicesCard() {
   )
 }
 
+function MicroSegmentsCard() {
+  const qc = useQueryClient()
+  const { data: micros = [] } = useMicroSegments()
+  const [segment, setSegment] = useState(MARKET_IDS[0])
+  const [label, setLabel] = useState('')
+  const [err, setErr] = useState('')
+
+  async function add() {
+    setErr('')
+    try {
+      await addMicroSegment(segment, label)
+      setLabel('')
+      qc.invalidateQueries({ queryKey: ['micro-segments'] })
+    } catch (e) {
+      setErr(e.message)
+    }
+  }
+  async function del(m) {
+    await removeMicroSegment(m.id)
+    qc.invalidateQueries({ queryKey: ['micro-segments'] })
+  }
+
+  return (
+    <Card icon={Layers} title="Mercados e microssegmentos"
+      desc="Os quatro mercados vêm do site da Leadrix. Os microssegmentos alimentam os filtros, o Radar ABM e o gerador de conteúdo — ajuste à carteira real.">
+      <div className="flex flex-wrap gap-2">
+        <select className="input w-auto" value={segment} onChange={(e) => setSegment(e.target.value)}>
+          {MARKET_IDS.map((k) => <option key={k} value={k}>{MARKETS[k].label}</option>)}
+        </select>
+        <input className="input min-w-[180px] flex-1" placeholder="Novo microssegmento…" value={label}
+          onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+        <button className="btn-primary shrink-0" onClick={add} disabled={!label.trim()}><Plus size={16} /></button>
+      </div>
+      {err && <p className="mt-1 text-xs text-rose-600">{err}</p>}
+      <div className="mt-3 space-y-3">
+        {MARKET_IDS.map((k) => (
+          <div key={k}>
+            <div className="eyebrow mb-1">{MARKETS[k].label}{MARKETS[k].microProposto ? ' · lista inicial proposta' : ' · do site'}</div>
+            <ul className="flex flex-wrap gap-1.5">
+              {micros.filter((m) => m.segment === k).map((m) => (
+                <li key={m.id} className="chip bg-ink-100 text-ink-700">
+                  {m.label}
+                  <button className="ml-1 text-ink-400 hover:text-rose-500" onClick={() => del(m)} aria-label={`Remover ${m.label}`}><Trash2 size={12} /></button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-ink-400">Remover um microssegmento não apaga o valor gravado nas contas; ele só deixa de aparecer nos filtros.</p>
+    </Card>
+  )
+}
+
 function IntegrationCard() {
   return (
-    <Card icon={ShieldCheck} title="Integração (handoff)" desc="Configuração do handoff com o Consulcard Projetos.">
+    <Card icon={ShieldCheck} title="Integração (handoff)" desc="Envio do projeto fechado para um sistema de projetos — fica dormente até existir um do lado da Leadrix.">
       <dl className="space-y-1.5 text-sm">
         <div className="flex justify-between"><dt className="text-ink-500">Modo</dt><dd className="font-medium">{DEMO_MODE ? 'Demo (sem Supabase)' : 'Supabase conectado'}</dd></div>
         <div className="flex justify-between"><dt className="text-ink-500">Onboarding</dt><dd className="font-mono text-xs">/functions/v1/crm-onboarding</dd></div>
@@ -255,16 +313,16 @@ function CatalogSyncCard() {
     try { setResult(await testCatalog()) } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
   return (
-    <Card icon={RefreshCw} title="Sincronização com o Consulcard Projetos"
-      desc="O CRM é a fonte de verdade dos serviços. O Projetos consome este catálogo via API para manter as mesmas nomenclaturas.">
+    <Card icon={RefreshCw} title="Catálogo de serviços via API"
+      desc="O CRM é a fonte de verdade dos serviços. Um sistema de projetos pode consumir este catálogo para manter as mesmas nomenclaturas.">
       <div className="space-y-2 text-sm">
         <div>
           <div className="label">Endpoint do catálogo (GET)</div>
           <code className="block break-all rounded-lg bg-ink-50 p-2 text-xs">{url}</code>
         </div>
         <p className="text-xs text-ink-500">
-          O operacional chama este endpoint com o header <code>X-Catalog-Key</code> (segredo compartilhado,
-          fora do app). Passe a chave e a URL ao time do Projetos.
+          O sistema consumidor chama este endpoint com o header <code>X-Catalog-Key</code> (segredo
+          compartilhado, fora do app).
         </p>
         <button className="btn-outline" onClick={test} disabled={busy}>
           <RefreshCw size={16} /> {busy ? 'Testando…' : 'Testar catálogo'}
@@ -281,11 +339,13 @@ function CatalogSyncCard() {
 }
 
 export default function Config() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   return (
     <>
-      <PageHeader title="Config / Integração" subtitle="Usuários, motivos de não-venda, serviços e integração." />
+      <PageHeader title="Configurações" subtitle="Custo de venda, mercados e microssegmentos, usuários, motivos de não-venda, serviços e integrações." />
       <div className="grid grid-cols-1 gap-5 p-6 lg:grid-cols-2">
+        {can('costs.edit') && <SalesCostSettings />}
+        <MicroSegmentsCard />
         {isAdmin && <UsersCard />}
         <LostReasonsCard />
         <ServicesCard />

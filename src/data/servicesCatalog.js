@@ -1,53 +1,59 @@
-// Catálogo de serviços do CRM, derivado da taxonomia oficial de projetos do
-// Consulcard Projetos (briefing §10). Em produção, o ideal é sincronizar com o
-// endpoint de catálogo do operacional (OPERACIONAL_CATALOG_URL) — este arquivo é
-// a fonte de verdade local enquanto esse endpoint não existe, e também alimenta o
-// seed do Supabase (supabase/migrations/0002_services.sql).
+// Catálogo de serviços da Leadrix, organizado pelos QUATRO PILARES de entrega
+// (nível 1 = pilar, nível 2 = serviço). Derivado das entregas descritas em
+// leadrix.com.br/pilares e /capacitacao.
 //
-// suggested_value_brl: valor sugerido (editável), calibrado pela complexidade.
-// Âncoras (complexidade 4-5) têm ticket alto; diagnósticos/curtos, ticket baixo.
+// `macro_id` é o id do pilar (contrato com src/data/leadrix.js — não renomear
+// sem migrar os dados). `suggested_value_brl` fica vazio de propósito: preço é
+// decisão comercial da Leadrix e é preenchido na tela Serviços.
+
+import { PILLARS } from './leadrix'
+
+const s = (pillar, service_id, name, complexity, complexity_range, extra = {}) => ({
+  macro_id: pillar,
+  macro_label: PILLARS[pillar].label,
+  service_id,
+  name,
+  complexity,
+  complexity_range,
+  anchor: false,
+  suggested_value_brl: null,
+  ...extra,
+})
 
 export const SERVICES_CATALOG = [
-  // contabil-regulatorio — Contábil/Regulatório
-  { macro_id: 'contabil-regulatorio', macro_label: 'Contábil/Regulatório', service_id: 'setup-contabil', name: 'Setup contábil completo', complexity: 5, complexity_range: '4-5', anchor: true, suggested_value_brl: null },
-  { macro_id: 'contabil-regulatorio', macro_label: 'Contábil/Regulatório', service_id: 'revisao-cosif', name: 'Revisão COSIF', complexity: 4, complexity_range: '3-4', anchor: false, suggested_value_brl: null },
-  { macro_id: 'contabil-regulatorio', macro_label: 'Contábil/Regulatório', service_id: 'mapeamento-bacen', name: 'Mapeamento BACEN', complexity: 4, complexity_range: '3-4', anchor: false, suggested_value_brl: null },
+  // Estruturas Organizacionais Híbridas
+  s('estruturas-hibridas', 'mapeamento-funcoes', 'Mapeamento de funções, decisões e conhecimentos críticos', 3, '2-3'),
+  s('estruturas-hibridas', 'redesenho-papeis', 'Redesenho de papéis entre pessoas, agentes e sistemas', 4, '3-5', { anchor: true }),
+  s('estruturas-hibridas', 'modelo-supervisao', 'Modelo de supervisão, responsabilidade e exceções', 3, '2-4'),
+  s('estruturas-hibridas', 'indicadores-capacidade', 'Indicadores de capacidade, qualidade e produtividade', 2, '2-3'),
 
-  // meios-pagamento — Meios de Pagamento
-  { macro_id: 'meios-pagamento', macro_label: 'Meios de Pagamento', service_id: 'emissor-cartao', name: 'Emissor de cartão', complexity: 5, complexity_range: '4-5', anchor: true, suggested_value_brl: null },
-  { macro_id: 'meios-pagamento', macro_label: 'Meios de Pagamento', service_id: 'migracao-processadora', name: 'Migração de processadora', complexity: 5, complexity_range: '4-5', anchor: false, suggested_value_brl: null },
-  { macro_id: 'meios-pagamento', macro_label: 'Meios de Pagamento', service_id: 'otimizacao-tarifas', name: 'Otimização de tarifas', complexity: 3, complexity_range: '2-3', anchor: false, suggested_value_brl: null },
-  { macro_id: 'meios-pagamento', macro_label: 'Meios de Pagamento', service_id: 'setup-bandeira', name: 'Setup de bandeira', complexity: 4, complexity_range: '3-4', anchor: false, suggested_value_brl: null },
-  { macro_id: 'meios-pagamento', macro_label: 'Meios de Pagamento', service_id: 'estruturacao-adquirencia', name: 'Estruturação de adquirência', complexity: 5, complexity_range: '4-5', anchor: false, suggested_value_brl: null },
-  { macro_id: 'meios-pagamento', macro_label: 'Meios de Pagamento', service_id: 'operacao-cartao', name: 'Operação de cartão', complexity: 4, complexity_range: '2-4', anchor: false, suggested_value_brl: null },
+  // Agentes e Processos Automatizados para Eficiência
+  s('agentes-processos', 'diagnostico-leadrix', 'Diagnóstico Leadrix (porta de entrada)', 2, '1-3', { entry: true }),
+  s('agentes-processos', 'redesenho-processos-agentes', 'Diagnóstico e redesenho de processos com agentes', 3, '3-4'),
+  s('agentes-processos', 'portfolio-priorizacao', 'Portfólio e priorização por impacto, custo, prazo e risco', 3, '2-3'),
+  s('agentes-processos', 'implantacao-agentes', 'Implantação e integração de agentes, dados e sistemas', 5, '4-5', { anchor: true }),
+  s('agentes-processos', 'governanca-agentes', 'Regras, exceções, supervisão e indicadores dos agentes', 3, '2-4'),
 
-  // banking-conta-digital — Banking/Conta Digital
-  { macro_id: 'banking-conta-digital', macro_label: 'Banking/Conta Digital', service_id: 'conta-digital', name: 'Conta digital', complexity: 5, complexity_range: '4-5', anchor: false, suggested_value_brl: null },
-  { macro_id: 'banking-conta-digital', macro_label: 'Banking/Conta Digital', service_id: 'baas', name: 'BaaS (Banking as a Service)', complexity: 5, complexity_range: '4-5', anchor: true, suggested_value_brl: null },
-  { macro_id: 'banking-conta-digital', macro_label: 'Banking/Conta Digital', service_id: 'pld-aml', name: 'PLD/AML', complexity: 4, complexity_range: '3-4', anchor: false, suggested_value_brl: null },
-  { macro_id: 'banking-conta-digital', macro_label: 'Banking/Conta Digital', service_id: 'kyc-onboarding', name: 'KYC / Onboarding', complexity: 3, complexity_range: '2-3', anchor: false, suggested_value_brl: null },
+  // Educação e Adoção Produtiva
+  s('educacao-adocao', 'workshop-gratuito', 'Workshop gratuito / Workshop Mensal Leadrix', 1, '1', { entry: true }),
+  s('educacao-adocao', 'workshop-in-company', 'Workshop in company personalizado por função', 2, '2-3'),
+  s('educacao-adocao', 'formacao-executiva', 'Formação Executiva em IA (Curso de Formação Leadrix)', 3, '2-3'),
+  s('educacao-adocao', 'multiplicadores-adocao', 'Formação de multiplicadores e acompanhamento de adoção', 3, '3-4'),
+  s('educacao-adocao', 'playbook-ia', 'Playbook de IA (métodos, segurança, qualidade e indicadores)', 3, '2-4', { anchor: true }),
 
-  // consultoria-estrategica — Consultoria Estratégica
-  { macro_id: 'consultoria-estrategica', macro_label: 'Consultoria Estratégica', service_id: 'diagnostico', name: 'Diagnóstico', complexity: 2, complexity_range: '1-3', anchor: false, suggested_value_brl: null },
-  { macro_id: 'consultoria-estrategica', macro_label: 'Consultoria Estratégica', service_id: 'estrategia-produto', name: 'Estratégia de produto', complexity: 3, complexity_range: '2-4', anchor: false, suggested_value_brl: null },
-  { macro_id: 'consultoria-estrategica', macro_label: 'Consultoria Estratégica', service_id: 'modelo-negocio', name: 'Modelo de negócio', complexity: 3, complexity_range: '2-4', anchor: false, suggested_value_brl: null },
-  { macro_id: 'consultoria-estrategica', macro_label: 'Consultoria Estratégica', service_id: 'transformacao-digital', name: 'Transformação digital', complexity: 4, complexity_range: '2-4', anchor: false, suggested_value_brl: null },
-
-  // open-finance — Open Finance/Pagamentos Instantâneos
-  { macro_id: 'open-finance', macro_label: 'Open Finance/Pagamentos Instantâneos', service_id: 'pix-implantacao', name: 'Implantação Pix', complexity: 4, complexity_range: '3-4', anchor: false, suggested_value_brl: null },
-  { macro_id: 'open-finance', macro_label: 'Open Finance/Pagamentos Instantâneos', service_id: 'open-finance-assessoria', name: 'Assessoria Open Finance', complexity: 3, complexity_range: '2-4', anchor: false, suggested_value_brl: null },
-
-  // revisao-operacional — Revisão Operacional
-  { macro_id: 'revisao-operacional', macro_label: 'Revisão Operacional', service_id: 'mandates-bandeira', name: 'Mandates de bandeira', complexity: 3, complexity_range: '2-4', anchor: false, suggested_value_brl: null },
-  { macro_id: 'revisao-operacional', macro_label: 'Revisão Operacional', service_id: 'suporte-regulatorio', name: 'Suporte regulatório', complexity: 3, complexity_range: '2-3', anchor: false, suggested_value_brl: null },
+  // Novos Negócios, Linhas de Receita e Spin-offs
+  s('novos-negocios', 'mapeamento-ativos', 'Mapeamento de ativos, conhecimentos e oportunidades', 3, '2-3'),
+  s('novos-negocios', 'teses-negocio', 'Construção e priorização de teses de negócio', 3, '3-4'),
+  s('novos-negocios', 'prototipacao-validacao', 'Prototipação, validação e tese econômico-financeira', 4, '3-5'),
+  s('novos-negocios', 'spin-off', 'Modelo de implantação, parceria, nova unidade ou spin-off', 5, '4-5', { anchor: true }),
 ]
 
-// Agrupa por macro categoria (para selects e telas).
+// Agrupa por pilar (para selects e telas).
 export function servicesByMacro(list = SERVICES_CATALOG) {
   const map = new Map()
-  for (const s of list) {
-    if (!map.has(s.macro_id)) map.set(s.macro_id, { macro_id: s.macro_id, macro_label: s.macro_label, services: [] })
-    map.get(s.macro_id).services.push(s)
+  for (const sv of list) {
+    if (!map.has(sv.macro_id)) map.set(sv.macro_id, { macro_id: sv.macro_id, macro_label: sv.macro_label, services: [] })
+    map.get(sv.macro_id).services.push(sv)
   }
   return [...map.values()]
 }

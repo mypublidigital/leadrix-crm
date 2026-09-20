@@ -70,7 +70,7 @@ export default function Servicos() {
     <>
       <PageHeader
         title="Serviços"
-        subtitle="Catálogo de serviços e valores sugeridos. Base da visão financeira do pipeline."
+        subtitle="Catálogo organizado pelos quatro pilares de entrega da Leadrix, com valores sugeridos. Base da visão financeira do pipeline."
       />
       <div className="space-y-5 p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

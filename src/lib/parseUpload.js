@@ -15,7 +15,7 @@
 // contar posição daria número errado.
 
 import { isValidEmail, isValidCNPJ, formatCNPJ, matchEnumDomain } from './validators'
-import { SEGMENTS, ACCOUNT_SIZES, THERMOMETER } from './constants'
+import { SEGMENTS, ACCOUNT_SIZES, THERMOMETER, ABM_TIERS } from './constants'
 
 const splitPipe = (v) => String(v || '').split('|').map((s) => s.trim()).filter(Boolean)
 const splitTitles = (v) => String(v || '').split(/\r?\n|\|/).map((s) => s.trim()).filter(Boolean)
@@ -28,11 +28,12 @@ function mapClassification(raw) {
   if (!v) return { value: 'lead', warning: null }
   if (v === 'cliente') return { value: 'cliente', warning: null }
   if (v === 'parceiro') return { value: 'parceiro', warning: null }
-  if (v === 'cliente / parceiro' || v === 'cliente/parceiro') return { value: 'cliente_parceiro', warning: null }
+  if (v === 'lead') return { value: 'lead', warning: null }
+  if (['conta-alvo', 'conta alvo', 'conta-alvo (icp)', 'icp', 'alvo'].includes(v)) return { value: 'conta_alvo', warning: null }
   return {
     value: 'lead',
     campo: 'Classificação',
-    warning: `"${raw}" não reconhecida (aceitos: Cliente, Parceiro, Cliente / Parceiro) — tratada como Lead histórico.`,
+    warning: `"${raw}" não reconhecida (aceitos: Cliente, Conta-alvo, Parceiro, Lead) — tratada como Lead.`,
   }
 }
 
@@ -73,6 +74,9 @@ function mapCNPJ(raw) {
   return { value: null, campo: 'CNPJ', warning: `"${raw}" inválido (dígito verificador não confere) — não importado.` }
 }
 
+// Nível ABM aceita "1:1", "1:few", "1:many" ou os rótulos por extenso.
+const ABM_TIERS_DOMAIN = Object.fromEntries(Object.entries(ABM_TIERS).map(([k, v]) => [k, v.label.split(' · ')[1]]))
+
 // aceita variações de nome de coluna
 const COL = {
   name: ['Cliente', 'Nome', 'Empresa', 'Razão Social', 'Conta'],
@@ -88,7 +92,9 @@ const COL = {
   site: ['Site', 'Website', 'URL'],
   status: ['Status', 'Situação'],
   cnpj: ['CNPJ'],
-  segment: ['Segmento'],
+  segment: ['Mercado', 'Segmento', 'Macrossegmento', 'Macro segmento'],
+  micro: ['Microssegmento', 'Micro segmento', 'Subsegmento'],
+  tier: ['Nível ABM', 'Nivel ABM', 'Tier ABM', 'Tier'],
   accountSize: ['Porte'],
   commercialTemp: ['Termômetro', 'Termometro', 'Saúde', 'Saude', 'Termômetro Comercial'],
 }
@@ -180,6 +186,8 @@ export async function parseUploadFile(file) {
       classification: pickComLinha(grp, COL.classification),
       cnpj: pickComLinha(grp, COL.cnpj),
       segment: pickComLinha(grp, COL.segment),
+      micro: pickComLinha(grp, COL.micro),
+      tier: pickComLinha(grp, COL.tier),
       accountSize: pickComLinha(grp, COL.accountSize),
       commercialTemp: pickComLinha(grp, COL.commercialTemp),
       status: pickComLinha(grp, COL.status),
@@ -187,7 +195,8 @@ export async function parseUploadFile(file) {
     }
     const classification = mapClassification(src.classification.valor)
     const cnpj = mapCNPJ(src.cnpj.valor)
-    const segment = mapDomain(src.segment.valor, SEGMENTS, 'Segmento')
+    const segment = mapDomain(src.segment.valor, SEGMENTS, 'Mercado')
+    const tier = mapDomain(src.tier.valor, ABM_TIERS_DOMAIN, 'Nível ABM')
     const accountSize = mapDomain(src.accountSize.valor, ACCOUNT_SIZES, 'Porte')
     const commercialTemp = mapCommercialTemp(src.commercialTemp.valor)
 
@@ -198,6 +207,7 @@ export async function parseUploadFile(file) {
       [classification, src.classification.linha],
       [cnpj, src.cnpj.linha],
       [segment, src.segment.linha],
+      [tier, src.tier.linha],
       [accountSize, src.accountSize.linha],
       [commercialTemp, src.commercialTemp.linha],
     ].forEach(([r, linha]) => {
@@ -210,6 +220,9 @@ export async function parseUploadFile(file) {
       classification: classification.value,
       cnpj: cnpj.value,
       segment: segment.value,
+      // Microssegmento é texto da tabela editável; só grava junto com um mercado válido.
+      micro_segment: segment.value ? src.micro.valor || null : null,
+      abm_tier: tier.value,
       account_size: accountSize.value,
       commercial_temp: commercialTemp.value,
       macro_categories: [...macroSet].sort(),

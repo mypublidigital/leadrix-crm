@@ -1,5 +1,5 @@
 // Edge Function: catálogo de serviços do CRM (fonte de verdade — §10 + decisão da
-// reunião de que o CRM é onde os serviços são mantidos). O Consulcard Projetos
+// reunião de que o CRM é onde os serviços são mantidos). O sistema de projetos
 // CONSOME este endpoint para manter as mesmas nomenclaturas/taxonomia.
 //
 //   GET /functions/v1/catalog
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
   return json({
     version: 1,
-    source: 'consulcard-crm',
+    source: 'leadrix-crm',
     generated_at: new Date().toISOString(),
     count: data.length,
     services: data,

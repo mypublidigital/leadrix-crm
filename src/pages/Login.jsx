@@ -106,7 +106,7 @@ export default function Login({ onSignIn }) {
     <div className="grid min-h-screen place-items-center bg-ink-50 p-4">
       <div className="card w-full max-w-sm p-8">
         <div className="mb-6 flex justify-center">
-          <Logo width={210} crmAlign="center" />
+          <Logo tone="light" height={40} />
         </div>
 
         <h1 className="mb-1 text-lg font-bold text-ink-900">{trocando ? 'Trocar senha' : 'Entrar'}</h1>

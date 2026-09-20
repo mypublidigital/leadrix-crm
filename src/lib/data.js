@@ -4,7 +4,9 @@
 // As páginas só consomem estas funções, sem saber qual modo está ativo.
 
 import { supabase, isSupabaseConfigured } from './supabase'
-import { loadState, saveState, mutate, uid, resetState } from './demoStore'
+import { loadState, mutate, uid, resetState } from './demoStore'
+import { withDefaults } from './costs'
+import { slug } from '../data/leadrix'
 
 export const DEMO_MODE = !isSupabaseConfigured
 export { resetState }
@@ -283,9 +285,9 @@ export async function removeUser(id) {
 
 // ── Pré-CRM: captura de leads por foto (pré-base) ─────────────
 const DEMO_NAMES = [
-  { name: 'Carlos Mendes', company: 'PagFácil', role: 'Diretor de Produto', email: 'carlos@pagfacil.com.br', phone: '+55 11 98888-1111' },
-  { name: 'Fernanda Lima', company: 'Banco Azul', role: 'Head de Inovação', email: 'fernanda.lima@bancoazul.com.br', phone: '+55 11 97777-2222' },
-  { name: 'Ricardo Souza', company: 'CoopCred', role: 'Gerente Comercial', email: 'ricardo@coopcred.coop.br', phone: '+55 41 96666-3333' },
+  { name: 'Carlos Mendes', company: 'Metalúrgica Serra Azul', role: 'Diretor de Operações', email: 'carlos.mendes@serraazul.ind.br', phone: '+55 11 98888-1111' },
+  { name: 'Fernanda Lima', company: 'Rede Farma Bem', role: 'Diretora de Expansão', email: 'fernanda.lima@farmabem.com.br', phone: '+55 11 97777-2222' },
+  { name: 'Ricardo Souza', company: 'Vértice Consultoria', role: 'Sócio', email: 'ricardo@verticeconsultoria.com.br', phone: '+55 41 96666-3333' },
 ]
 
 // Envia a foto (base64) para extração. Retorna o pre_lead criado.
@@ -531,11 +533,11 @@ export async function updateServiceValue(id, suggested_value_brl) {
   if (error) throw error
 }
 
-// Testa o endpoint de catálogo (consumido pelo Consulcard Projetos).
+// Testa o endpoint de catálogo (consumido pelo sistema de projetos, quando existir).
 export async function testCatalog() {
   if (DEMO_MODE) {
     const s = loadState()
-    return { source: 'consulcard-crm (demo)', count: s.services.length, services: s.services }
+    return { source: 'leadrix-crm (demo)', count: s.services.length, services: s.services }
   }
   return invokeFn('catalog', undefined, { method: 'GET' })
 }
@@ -681,15 +683,19 @@ export async function listTasks() {
   return data
 }
 
+// Devolve { id } — a ação ABM recém-criada recebe os lançamentos de custo.
 export async function createTask(task) {
   if (DEMO_MODE) {
     return mutate((s) => {
-      s.tasks.push({ id: uid(), service_ids: [], ...task })
+      const row = { id: uid(), service_ids: [], created_at: new Date().toISOString(), ...task }
+      s.tasks.push(row)
+      return { id: row.id }
     })
   }
   const { service_ids, ...row } = task
-  const { error } = await supabase.from('tasks').insert(row)
+  const { data, error } = await supabase.from('tasks').insert(row).select('id').single()
   if (error) throw error
+  return { id: data.id }
 }
 
 export async function updateTask(id, patch) {
@@ -699,7 +705,7 @@ export async function updateTask(id, patch) {
       if (t) Object.assign(t, patch)
     })
   }
-  const { service_ids, account, ...row } = patch
+  const { service_ids, account, created_at, ...row } = patch
   const { error } = await supabase.from('tasks').update(row).eq('id', id)
   if (error) throw error
 }
@@ -725,7 +731,380 @@ export async function addInteraction(accountId, { type, summary }) {
   if (error) throw error
 }
 
-// ── Handoff (fechar deal → operacional) ───────────────────────
+// ── Microssegmentos (tabela editável, ligada aos 4 mercados) ──
+export async function listMicroSegments() {
+  if (DEMO_MODE) return structuredClone(loadState().micro_segments || []).sort((a, b) => a.sort - b.sort)
+  const { data, error } = await supabase.from('micro_segments').select('id, segment, label, sort').order('sort')
+  if (error) throw error
+  return data
+}
+
+export async function addMicroSegment(segment, label) {
+  const clean = String(label || '').trim()
+  if (!segment || !clean) throw new Error('Informe o mercado e o nome do microssegmento.')
+  const row = { id: `${segment}--${slug(clean)}`, segment, label: clean, sort: 999 }
+  if (DEMO_MODE) {
+    return mutate((s) => {
+      s.micro_segments = s.micro_segments || []
+      if (s.micro_segments.some((m) => m.id === row.id)) throw new Error('Esse microssegmento já existe neste mercado.')
+      row.sort = s.micro_segments.filter((m) => m.segment === segment).length + 1
+      s.micro_segments.push(row)
+    })
+  }
+  const { error } = await supabase.from('micro_segments').insert(row)
+  if (error) {
+    if (error.code === '23505') throw new Error('Esse microssegmento já existe neste mercado.')
+    throw error
+  }
+}
+
+export async function removeMicroSegment(id) {
+  if (DEMO_MODE) {
+    return mutate((s) => { s.micro_segments = (s.micro_segments || []).filter((m) => m.id !== id) })
+  }
+  const { error } = await supabase.from('micro_segments').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ── Custo de venda: configuração ──────────────────────────────
+// Em produção a configuração vive em quatro lugares: recursos, categorias de
+// despesa, custos fixos (uma tabela cada) e `crm_settings` (chave → jsonb) para
+// horas por tipo de ação, margem e SLA de aging.
+export async function getSalesCostSettings() {
+  if (DEMO_MODE) return withDefaults(structuredClone(loadState().sales_cost || null))
+  const [res, cats, fixed, settings] = await Promise.all([
+    supabase.from('sales_resources').select('id, name, role, user_id, monthly_cost, monthly_hours, hourly_cost, active, sort').order('sort'),
+    supabase.from('sales_expense_categories').select('id, label, unit, default_cost, sort').order('sort'),
+    supabase.from('sales_fixed_costs').select('id, label, monthly, sort').order('sort'),
+    supabase.from('crm_settings').select('key, value'),
+  ])
+  for (const r of [res, cats, fixed, settings]) if (r.error) throw r.error
+  const kv = Object.fromEntries((settings.data || []).map((r) => [r.key, r.value]))
+  return withDefaults({
+    resources: res.data,
+    expense_categories: cats.data,
+    fixed_costs: fixed.data,
+    task_hours: kv.task_hours,
+    margin_pct: kv.margin_pct,
+    aging_sla: kv.aging_sla,
+  })
+}
+
+// Grava uma lista inteira: primeiro upsert (nada se perde se falhar), depois
+// remove o que saiu da lista — mesma ordem segura de saveContacts.
+async function replaceList(table, rows, columns) {
+  // Campo numérico apagado na tela chega como '' — no banco vira null.
+  const clean = rows.map((r, i) => Object.fromEntries(columns.map((c) => [c, c === 'sort' ? i + 1 : (r[c] === '' || r[c] === undefined ? null : r[c])])))
+  if (clean.length) {
+    const { error } = await supabase.from(table).upsert(clean, { onConflict: 'id' })
+    if (error) throw error
+  }
+  const { data: existing, error: readErr } = await supabase.from(table).select('id')
+  if (readErr) throw readErr
+  const keep = new Set(clean.map((r) => r.id))
+  const stale = (existing || []).map((r) => r.id).filter((id) => !keep.has(id))
+  if (stale.length) {
+    const { error } = await supabase.from(table).delete().in('id', stale)
+    if (error) throw error
+  }
+}
+
+export async function saveSalesCostSettings(settings) {
+  const s = withDefaults(settings)
+  if (DEMO_MODE) return mutate((st) => { st.sales_cost = s })
+  await replaceList('sales_resources', s.resources, ['id', 'name', 'role', 'user_id', 'monthly_cost', 'monthly_hours', 'hourly_cost', 'active', 'sort'])
+  await replaceList('sales_expense_categories', s.expense_categories, ['id', 'label', 'unit', 'default_cost', 'sort'])
+  await replaceList('sales_fixed_costs', s.fixed_costs, ['id', 'label', 'monthly', 'sort'])
+  const { error } = await supabase.from('crm_settings').upsert([
+    { key: 'task_hours', value: s.task_hours },
+    { key: 'margin_pct', value: s.margin_pct },
+    { key: 'aging_sla', value: s.aging_sla },
+  ], { onConflict: 'key' })
+  if (error) throw error
+}
+
+// ── Custo de venda: lançamentos (horas e despesas) ────────────
+const COST_COLUMNS = 'id, account_id, opportunity_id, task_id, kind, resource_id, hours, hourly_cost, category_id, quantity, unit_cost, description, date, created_at'
+
+function costRow(e) {
+  const n = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v))
+  return {
+    account_id: e.account_id,
+    opportunity_id: e.opportunity_id || null,
+    task_id: e.task_id || null,
+    kind: e.kind === 'hours' ? 'hours' : 'expense',
+    resource_id: e.kind === 'hours' ? e.resource_id || null : null,
+    hours: e.kind === 'hours' ? n(e.hours) : null,
+    hourly_cost: e.kind === 'hours' ? n(e.hourly_cost) : null,
+    category_id: e.kind === 'hours' ? null : e.category_id || null,
+    quantity: e.kind === 'hours' ? null : n(e.quantity) ?? 1,
+    unit_cost: e.kind === 'hours' ? null : n(e.unit_cost),
+    description: String(e.description || '').trim() || null,
+    date: e.date || new Date().toISOString().slice(0, 10),
+  }
+}
+
+export async function listCostEntries({ accountId } = {}) {
+  if (DEMO_MODE) {
+    const all = structuredClone(loadState().cost_entries || [])
+    return accountId ? all.filter((e) => e.account_id === accountId) : all
+  }
+  let q = supabase.from('cost_entries').select(COST_COLUMNS).order('date', { ascending: false })
+  if (accountId) q = q.eq('account_id', accountId)
+  const { data, error } = await q
+  if (error) throw error
+  return data
+}
+
+export async function addCostEntries(entries) {
+  const rows = entries.map(costRow).filter((r) => r.account_id && (r.kind === 'hours' ? r.hours > 0 : r.unit_cost > 0))
+  if (!rows.length) return
+  if (DEMO_MODE) {
+    return mutate((s) => {
+      s.cost_entries = s.cost_entries || []
+      rows.forEach((r) => s.cost_entries.push({ id: uid(), created_at: new Date().toISOString(), ...r }))
+    })
+  }
+  const { error } = await supabase.from('cost_entries').insert(rows)
+  if (error) throw error
+}
+
+export async function deleteCostEntry(id) {
+  if (DEMO_MODE) {
+    return mutate((s) => { s.cost_entries = (s.cost_entries || []).filter((e) => e.id !== id) })
+  }
+  const { error } = await supabase.from('cost_entries').delete().eq('id', id)
+  if (error) throw error
+}
+
+// Substitui os lançamentos de UMA ação ABM. Insere os novos antes de apagar os
+// antigos: se a gravação falhar, o custo anterior continua registrado.
+export async function replaceTaskCostEntries(taskId, entries) {
+  const rows = entries.map((e) => costRow({ ...e, task_id: taskId }))
+    .filter((r) => r.account_id && (r.kind === 'hours' ? r.hours > 0 : r.unit_cost > 0))
+  if (DEMO_MODE) {
+    return mutate((s) => {
+      s.cost_entries = (s.cost_entries || []).filter((e) => e.task_id !== taskId)
+      rows.forEach((r) => s.cost_entries.push({ id: uid(), created_at: new Date().toISOString(), ...r }))
+    })
+  }
+  const { data: old, error: readErr } = await supabase.from('cost_entries').select('id').eq('task_id', taskId)
+  if (readErr) throw readErr
+  if (rows.length) {
+    const { error } = await supabase.from('cost_entries').insert(rows)
+    if (error) throw error
+  }
+  const oldIds = (old || []).map((r) => r.id)
+  if (oldIds.length) {
+    const { error } = await supabase.from('cost_entries').delete().in('id', oldIds)
+    if (error) throw error
+  }
+}
+
+// ── Conteúdo (biblioteca do estúdio) ──────────────────────────
+const CONTENT_COLUMNS = 'id, format, title, body, meta_description, hashtags, cta, status, account_id, opportunity_id, play_id, segment, micro_segment, pillar, persona, stage, angle, generated_by, created_at, updated_at'
+
+export async function listContents() {
+  if (DEMO_MODE) {
+    return structuredClone(loadState().contents || []).sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
+  }
+  const { data, error } = await supabase.from('content_items').select(CONTENT_COLUMNS).order('updated_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function saveContent(item) {
+  const now = new Date().toISOString()
+  const row = {
+    format: item.format, title: item.title || null, body: item.body || '',
+    meta_description: item.meta_description || null, hashtags: item.hashtags || [], cta: item.cta || null,
+    status: item.status || 'rascunho', account_id: item.account_id || null, opportunity_id: item.opportunity_id || null,
+    play_id: item.play_id || null, segment: item.segment || null, micro_segment: item.micro_segment || null,
+    pillar: item.pillar || null, persona: item.persona || null, stage: item.stage || null, angle: item.angle || null,
+    generated_by: item.generated_by || null,
+  }
+  if (DEMO_MODE) {
+    return mutate((s) => {
+      s.contents = s.contents || []
+      const existing = item.id && s.contents.find((c) => c.id === item.id)
+      if (existing) { Object.assign(existing, row, { updated_at: now }); return { id: existing.id } }
+      const created = { id: uid(), ...row, created_at: now, updated_at: now }
+      s.contents.unshift(created)
+      return { id: created.id }
+    })
+  }
+  if (item.id) {
+    const { error } = await supabase.from('content_items').update({ ...row, updated_at: now }).eq('id', item.id)
+    if (error) throw error
+    return { id: item.id }
+  }
+  const { data, error } = await supabase.from('content_items').insert(row).select('id').single()
+  if (error) throw error
+  return { id: data.id }
+}
+
+export async function deleteContent(id) {
+  if (DEMO_MODE) return mutate((s) => { s.contents = (s.contents || []).filter((c) => c.id !== id) })
+  const { error } = await supabase.from('content_items').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ── Sugestões ABM descartadas ─────────────────────────────────
+export async function listAbmDismissals() {
+  if (DEMO_MODE) return structuredClone(loadState().abm_dismissals || [])
+  const { data, error } = await supabase.from('abm_dismissals').select('id, opportunity_id, play_id, reason, created_at')
+  if (error) throw error
+  return data
+}
+
+export async function dismissAbmPlay(opportunityId, playId, reason = null) {
+  const row = { opportunity_id: opportunityId, play_id: playId, reason }
+  if (DEMO_MODE) {
+    return mutate((s) => {
+      s.abm_dismissals = s.abm_dismissals || []
+      s.abm_dismissals.push({ id: uid(), ...row, created_at: new Date().toISOString() })
+    })
+  }
+  const { error } = await supabase.from('abm_dismissals').insert(row)
+  if (error) throw error
+}
+
+// ── Mensageria: configuração do remetente ─────────────────────
+// Guardada em crm_settings (chave 'email_settings'): nome de quem assina,
+// assinatura, aliases autorizados do Gmail da Leadrix e alias padrão.
+export const DEFAULT_EMAIL_SETTINGS = {
+  from_name: 'Leadrix',
+  from_email: 'marcelo@leadrix.com.br',
+  default_alias: 'marcelo@leadrix.com.br',
+  aliases: ['marcelo@leadrix.com.br'],
+  signature: 'Equipe Leadrix\nLidere seu mercado com IA',
+  auto_enabled: false, // trava geral dos envios automáticos
+}
+
+export async function listEmailSettings() {
+  if (DEMO_MODE) return { ...DEFAULT_EMAIL_SETTINGS, ...(loadState().email_settings || {}) }
+  const { data, error } = await supabase.from('crm_settings').select('value').eq('key', 'email_settings').maybeSingle()
+  if (error) throw error
+  return { ...DEFAULT_EMAIL_SETTINGS, ...(data?.value || {}) }
+}
+
+export async function saveEmailSettings(settings) {
+  if (DEMO_MODE) return mutate((s) => { s.email_settings = { ...DEFAULT_EMAIL_SETTINGS, ...settings } })
+  const { error } = await supabase.from('crm_settings').upsert({ key: 'email_settings', value: settings }, { onConflict: 'key' })
+  if (error) throw error
+}
+
+// ── Mensageria: modelos ───────────────────────────────────────
+const TEMPLATE_COLUMNS = 'id, name, event, subject, body, from_alias, auto, delay_days, active, created_at, updated_at'
+
+export async function listEmailTemplates() {
+  if (DEMO_MODE) return structuredClone(loadState().email_templates || [])
+  const { data, error } = await supabase.from('email_templates').select(TEMPLATE_COLUMNS).order('name')
+  if (error) throw error
+  return data
+}
+
+export async function saveEmailTemplate(t) {
+  const row = {
+    name: String(t.name || '').trim() || 'Modelo sem nome',
+    event: t.event || 'manual',
+    subject: t.subject || '',
+    body: t.body || '',
+    from_alias: t.from_alias || null,
+    auto: Boolean(t.auto),
+    delay_days: Number(t.delay_days) || 0,
+    active: t.active !== false,
+  }
+  if (DEMO_MODE) {
+    return mutate((s) => {
+      s.email_templates = s.email_templates || []
+      const existing = t.id && s.email_templates.find((x) => x.id === t.id)
+      if (existing) { Object.assign(existing, row, { updated_at: new Date().toISOString() }); return { id: existing.id } }
+      const created = { id: uid(), ...row, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+      s.email_templates.push(created)
+      return { id: created.id }
+    })
+  }
+  if (t.id) {
+    const { error } = await supabase.from('email_templates').update({ ...row, updated_at: new Date().toISOString() }).eq('id', t.id)
+    if (error) throw error
+    return { id: t.id }
+  }
+  const { data, error } = await supabase.from('email_templates').insert(row).select('id').single()
+  if (error) throw error
+  return { id: data.id }
+}
+
+export async function deleteEmailTemplate(id) {
+  if (DEMO_MODE) return mutate((s) => { s.email_templates = (s.email_templates || []).filter((t) => t.id !== id) })
+  const { error } = await supabase.from('email_templates').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ── Mensageria: fila de mensagens ─────────────────────────────
+const MESSAGE_COLUMNS = 'id, account_id, contact_id, opportunity_id, task_id, template_id, event, to_email, to_name, from_alias, subject, body, status, scheduled_at, sent_at, error, provider_message_id, created_at'
+
+export async function listEmailMessages({ accountId } = {}) {
+  if (DEMO_MODE) {
+    const all = structuredClone(loadState().email_messages || [])
+    const list = accountId ? all.filter((m) => m.account_id === accountId) : all
+    return list.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+  }
+  let q = supabase.from('email_messages').select(MESSAGE_COLUMNS).order('created_at', { ascending: false })
+  if (accountId) q = q.eq('account_id', accountId)
+  const { data, error } = await q
+  if (error) throw error
+  return data
+}
+
+export async function createEmailMessage(m) {
+  const row = {
+    account_id: m.account_id,
+    contact_id: m.contact_id || null,
+    opportunity_id: m.opportunity_id || null,
+    task_id: m.task_id || null,
+    template_id: m.template_id || null,
+    event: m.event || 'manual',
+    to_email: m.to_email,
+    to_name: m.to_name || null,
+    from_alias: m.from_alias || null,
+    subject: m.subject || '',
+    body: m.body || '',
+    status: m.status || 'rascunho',
+    scheduled_at: m.scheduled_at || null,
+  }
+  if (!row.account_id || !row.to_email) throw new Error('E-mail precisa de conta e destinatário.')
+  if (DEMO_MODE) {
+    return mutate((s) => {
+      s.email_messages = s.email_messages || []
+      const created = { id: uid(), ...row, sent_at: null, error: null, provider_message_id: null, created_at: new Date().toISOString() }
+      s.email_messages.unshift(created)
+      return { id: created.id }
+    })
+  }
+  const { data, error } = await supabase.from('email_messages').insert(row).select('id').single()
+  if (error) throw error
+  return { id: data.id }
+}
+
+export async function updateEmailMessage(id, patch) {
+  if (DEMO_MODE) {
+    return mutate((s) => {
+      const m = (s.email_messages || []).find((x) => x.id === id)
+      if (m) Object.assign(m, patch)
+    })
+  }
+  const { error } = await supabase.from('email_messages').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteEmailMessage(id) {
+  if (DEMO_MODE) return mutate((s) => { s.email_messages = (s.email_messages || []).filter((m) => m.id !== id) })
+  const { error } = await supabase.from('email_messages').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ── Handoff (fechar deal → sistema de projetos) ───────────────
 // Em demo, simula sucesso. Em produção chama a Edge Function crm-handoff.
 export async function closeAndHandoff(accountId, payload) {
   if (DEMO_MODE) {
@@ -744,10 +1123,10 @@ export async function closeAndHandoff(accountId, payload) {
         value_brl: payload?.contract_value_brl || null,
         handoff_status: 'sucesso',
         project_id: projectId,
-        project_url: `https://consulcard-app.vercel.app/projects/${projectId}`,
+        project_url: `https://projetos.leadrix.com.br/projects/${projectId}`,
         signed_at: new Date().toISOString(),
       })
-      return { ok: true, simulated: true, project_url: `https://consulcard-app.vercel.app/projects/${projectId}` }
+      return { ok: true, simulated: true, project_url: `https://projetos.leadrix.com.br/projects/${projectId}` }
     })
   }
   return invokeFn('crm-handoff', { accountId, ...payload })

@@ -7,6 +7,12 @@ import TaskTypeIcon from './TaskTypeIcon'
 import { StageBadge, StatusBadge, ThermometerBadge } from './Badge'
 import { getAccount, updateAccountService, listLostReasons, listRoster } from '../lib/data'
 import { opportunityAging } from '../lib/finance'
+import AccountCostPanel from './AccountCostPanel'
+import AbmSuggestionCard from './AbmSuggestionCard'
+import { PillarBadge } from './SegmentFilters'
+import { suggestForOpportunity, opportunityAgingState } from '../lib/abm'
+import { useTasks, useDismissals, useSalesCost } from '../lib/hooks'
+import { useAuth } from '../lib/useAuth'
 import {
   PROPOSAL_LINK_FROM, THERMOMETER, THERMOMETER_LEVELS, CRM_STAGES, formatBRL,
 } from '../lib/constants'
@@ -19,6 +25,10 @@ export default function OpportunityModal({ opportunity, onClose }) {
   const { data: a } = useQuery({ queryKey: ['account', opp.account_id], queryFn: () => getAccount(opp.account_id) })
   const { data: lostReasons = [] } = useQuery({ queryKey: ['lost-reasons'], queryFn: listLostReasons })
   const { data: roster = [] } = useQuery({ queryKey: ['roster'], queryFn: listRoster })
+  const { data: tasks = [] } = useTasks()
+  const { data: dismissals = [] } = useDismissals()
+  const { data: settings } = useSalesCost()
+  const { can } = useAuth()
 
   const [temp, setTemp] = useState(opp.commercial_temp ?? 0)
   const [ownerId, setOwnerId] = useState(opp.owner_id || '')
@@ -32,6 +42,9 @@ export default function OpportunityModal({ opportunity, onClose }) {
   const aging = opportunityAging(opp)
   const showProposal = PROPOSAL_LINK_FROM.includes(opp.stage)
   const serviceName = opp.service?.name || opp.service_id
+  const agingState = opportunityAgingState(opp, settings)
+  const suggestion = a ? suggestForOpportunity(opp, { account: a, tasks, dismissals, settings }) : null
+  const accountOpps = a?.account_services || [opp]
 
   async function save() {
     setBusy(true)
@@ -58,6 +71,7 @@ export default function OpportunityModal({ opportunity, onClose }) {
       title={
         <span className="flex items-center gap-2">
           {a?.name || '…'} · {serviceName} <StageBadge value={opp.stage} />
+          {opp.service?.macro_id && <PillarBadge id={opp.service.macro_id} />}
         </span>
       }
       footer={<>
@@ -136,6 +150,8 @@ export default function OpportunityModal({ opportunity, onClose }) {
             <textarea className="input min-h-[90px]" value={notes} onChange={(e) => setNotes(e.target.value)}
               placeholder="Notas internas sobre esta oportunidade…" />
           </div>
+
+          {a && can('costs.view') && <AccountCostPanel account={a} opportunities={accountOpps} focusOpportunityId={opp.id} />}
         </div>
 
         {/* Hemograma (aging) + tarefas */}
@@ -173,6 +189,16 @@ export default function OpportunityModal({ opportunity, onClose }) {
               ))}
             </div>
             <p className="mt-1 text-[11px] text-ink-400">● = etapa atual. Histórico registrado a cada movimentação no funil.</p>
+            <p className="mt-1 text-xs text-ink-600">
+              SLA da etapa: <b>{agingState.sla} dias</b> · situação <span className={`chip ${agingState.level.color}`}>{agingState.level.label}</span>
+            </p>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-bold text-ink-900">Jogadas ABM sugeridas</h3>
+            {suggestion
+              ? <AbmSuggestionCard suggestion={suggestion} settings={settings} showAccount={false} defaultOpen />
+              : <p className="text-sm text-ink-400">Nada pedindo ação agora — a oportunidade está dentro do SLA ou as jogadas já foram criadas.</p>}
           </div>
 
           <div>
@@ -193,7 +219,7 @@ export default function OpportunityModal({ opportunity, onClose }) {
 
           {a?.project_url && (
             <a href={a.project_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-500 hover:underline">
-              <ExternalLink size={14} /> Projeto no Consulcard Projetos
+              <ExternalLink size={14} /> Projeto no sistema de projetos
             </a>
           )}
         </div>

@@ -32,8 +32,8 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Consulcard-Signature': await signBody(SECRET, raw, ts),
-        'X-Consulcard-Timestamp': ts,
+        'X-Leadrix-Signature': await signBody(SECRET, raw, ts),
+        'X-Leadrix-Timestamp': ts,
       },
       body: raw,
     })

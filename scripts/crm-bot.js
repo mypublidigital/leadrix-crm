@@ -1,5 +1,5 @@
 /* ============================================================================
- * Bot de testes do Consulcard CRM
+ * Bot de testes do Leadrix CRM
  * ----------------------------------------------------------------------------
  * Navega por todas as telas e exercita filtros, consultas, inclusões e
  * exclusões, reportando falhas. Roda dentro do navegador, contra a aplicação
@@ -571,7 +571,7 @@
     window.addEventListener('unhandledrejection', onRej)
 
     const t0 = Date.now()
-    console.log('%c🤖 Bot de QA do Consulcard CRM — iniciando', 'font-weight:bold;font-size:14px')
+    console.log('%c🤖 Bot de QA do Leadrix CRM — iniciando', 'font-weight:bold;font-size:14px')
     let conta = null
     try {
       if (rodar('navegacao')) await testarNavegacao()

@@ -1,144 +1,144 @@
-# Consulcard CRM
+# Leadrix CRM
 
-Segundo módulo do **ERP Consulcard**. CRM baseado em **Account Based Marketing (ABM)**:
-cada cliente é uma conta-alvo com estratégia individual. Atua *upstream* do funil
-(captação → qualificação → proposta → negociação → fechamento) e, no fechamento,
-dispara o **handoff** para o módulo operacional **Consulcard Projetos**.
+CRM de **Account Based Marketing** da Leadrix. Cada conta é um mercado próprio:
+selecionada pelo ICP, trabalhada pelo comitê de compra e acompanhada por
+oportunidade, com custo de venda e ROI medidos.
 
-> Mesma stack do operacional: **React + Vite** (Vercel) · **Supabase** (Postgres + Auth +
-> Edge Functions) · **Claude Haiku 4.5** para o co-piloto ABM. O CRM usa um **projeto
-> Supabase próprio** — a integração com o operacional (`djdooeszhpftbiyzznli`) é por
-> HTTP/Edge Function, nunca por banco compartilhado.
+> **Stack:** React + Vite + Tailwind (Vercel) · Supabase (Postgres, Auth, Edge
+> Functions) · Claude (co-piloto e conteúdo). Roda **sem banco** em modo
+> demonstração, com dados fictícios gravados no navegador.
 
-## Status do build (incremental)
+## O que o CRM organiza
 
-| Módulo | Tela / artefato | Status |
+| Eixo | De onde vem | Onde vive no código |
 |---|---|---|
-| Fundação | Scaffold React+Vite+Tailwind, design system | ✅ |
-| Modelo de dados | `supabase/migrations/0001_init.sql` + `0002_services.sql` | ✅ |
-| Importador | `scripts/import-base.mjs` (planilha → Supabase) | ✅ |
-| Contas (ABM) | Lista com filtros + Conta-visão | ✅ |
-| Dashboard de funil | visão consolidada (parcial) | ✅ |
-| Agenda de execução | dupla visão Dia/Semana/Mês + por cliente | ✅ |
-| Serviços | catálogo (§10) com valores sugeridos editáveis | ✅ |
-| Pipeline / Deals | kanban drag&drop, visão financeira, Stand by/Perdido, link de proposta, detalhe do card, handoff HMAC | ✅ |
-| Co-piloto ABM | agente conversacional (Claude Sonnet) + heurística demo | ✅ |
-| Conta-visão | campos completos + edição + interações + estratégia caderno | ✅ |
-| Config / Integração | usuários (Edge Function admin), motivos de não-venda, serviços | ✅ |
-| Importador | upload CSV/Excel com pré-visualização | ✅ |
+| **4 pilares de entrega** — Estruturas Híbridas · Agentes e Processos · Educação e Adoção · Novos Negócios | leadrix.com.br/pilares | `src/data/leadrix.js` (`PILLARS`) e `src/data/servicesCatalog.js` |
+| **4 mercados** — Serviços B2B · Indústria · Varejo e Franquias · Empresas Digitais, com decisores, dores e indicadores | leadrix.com.br/mercados/* | `src/data/leadrix.js` (`MARKETS`) |
+| **Microssegmentos** (filtros) | Serviços B2B: site. Demais: lista inicial proposta | tabela editável em Configurações |
+| **Playbook ABM** — teoria, SLA de aging e jogadas por etapa | referencial ABM | `src/data/abmPlaybook.js` |
+| **Contexto estratégico de ABM** — pontuação ICP, sinais de intenção, campanhas por problema, jornada de 6 movimentos, estrutura da mensagem, métricas | documento Contexto Estratégico de ABM Leadrix | `src/data/abmContext.js` |
+| **Voz da marca** — anti-hype, método, CTAs | skill leadrix-design | `src/data/leadrix.js` (`BRAND_VOICE`) |
 
-> Pendente para a fase Supabase/Vercel: tela de teste de handoff + log de webhooks
-> (a tabela `webhook_logs` já existe), e provisionar os endpoints do lado operacional.
+## Telas
 
-### Modelo financeiro (Serviços → previsão por etapa)
+| Tela | O que faz |
+|---|---|
+| Dashboard | Funil, Radar ABM resumido, custo de venda & ROI em 12 meses, cobertura do programa ABM, matriz pilares × mercados, aging |
+| Contas (ABM) | Filtros por mercado → microssegmento, pilar, nível ABM (nível 1 / nível 2 / relacionamento), porte, etapa… |
+| Conta | Identidade e originação, **pontuação ICP**, **sinais e hipótese de valor**, grupo decisor, **ações ABM sugeridas**, **custo de venda e ROI da conta**, **timeline de relacionamento**, co-piloto conversacional |
+| **Mensageria** | Modelos de e-mail por evento do CRM, fila com revisão, envio pelo Gmail da Leadrix com escolha de alias |
+| Pipeline | Kanban por oportunidade com filtros de mercado/microssegmento/pilar e faixa de aging |
+| **Radar ABM** | Sugestões proativas por aging: jogada, porquê (teoria ABM), persona, custo estimado, "Criar ação" e "Gerar conteúdo" |
+| **Estúdio de conteúdo** | Blog post, post LinkedIn, carrossel Instagram e e-mail 1:1 por mercado, microssegmento, pilar, persona e etapa; biblioteca com status |
+| **Custo de venda & ROI** | Custo total, custo por lead, custo de conversão, ROI (receita e margem), quebras por pilar, mercado, microssegmento, recurso e despesa |
+| Configurações | **Tabela de custo de venda** (recursos e hora-homem, despesas, horas por tipo de ação, custos fixos, margem, SLA de aging), microssegmentos, usuários, motivos de perda, serviços |
 
-1. **Serviços** (`services`) — catálogo derivado da taxonomia §10, cada serviço com
-   `suggested_value_brl` (editável).
-2. **Serviços de interesse do lead** (`account_services`) — ao criar/editar uma tarefa de
-   ABM, o usuário marca os serviços que interessam à conta (valor estimado = sugerido,
-   editável). Isso define o **valor de oportunidade** da conta.
-3. **Visão financeira** (Pipeline) — para cada etapa do funil ABM mostra o **% de
-   fechamento** (`STAGE_PROBABILITY`: lead 10% · qualificado 25% · proposta 50% ·
-   negociação 75% · fechado 100%) e a **previsão de faturamento ponderada** =
-   Σ(serviços de interesse) × % da etapa. A ação **Fechar** dispara o handoff.
+## Perfis de acesso
 
-## Modo demo (sem Supabase)
+| Perfil | Vê | Não vê |
+|---|---|---|
+| **Admin** | tudo | — |
+| **Marketing** | tudo, inclusive custos e ROI | cadastro de usuários |
+| **Vendas** | contas, pipeline, radar, conteúdo, mensageria e **resultados** (leads, vendas, receita, conversão) | usuários e todo o módulo de custo (hora-homem, despesas, ROI) |
 
-O app roda **sem credenciais**, em modo somente-leitura, lendo
-`src/demo/accounts.json` (gerado da planilha real). Útil para desenvolver a UI antes de
-provisionar o Supabase.
+Só **Admin** exclui oportunidade. A regra vale na interface *e* no banco: a
+migração `0011` cria `crm_role()` e políticas que recusam a exclusão e o acesso
+às tabelas de custo para quem não tem o papel — esconder botão não protege quem
+chama a API direto (Guia §9.4). O papel vive em `app_metadata.role` do usuário,
+definido pelo admin.
+
+## Originação do lead e comissão de indicação
+
+Duas coisas diferentes, lado a lado no cadastro da conta:
+
+- **Canal de origem** — por onde o lead chegou (workshop, evento, inbound, LinkedIn…).
+- **Origem do lead** — quem trouxe: Boomit, MyPubli, Carol, Marcelo, Edson, Cristiano ou Outros (com especificação obrigatória).
+
+Quando a origem **gera comissão de indicação**, o percentual entra no cálculo:
+comissão = percentual × valor ganho, somada ao custo de venda. Isso afeta o
+**custo de conversão** e o **ROI** — realizado nas oportunidades ganhas e
+projetado (sobre o valor ponderado) nas que estão abertas. A tela de custos
+mostra a quebra por origem do lead.
+
+## Mensageria (e-mail para o lead)
+
+1. **Modelos por evento** — conta criada, mudança de etapa, ação concluída, aging crítico ou envio manual. Cada modelo pode estar em automático, com atraso em dias, e usa marcadores (`{{primeiro_nome}}`, `{{conta}}`, `{{indicador}}`, `{{hipotese}}`…).
+2. **Fila** — todo e-mail nasce na fila: automático entra como *agendado*, o resto como *rascunho*. Nada sai sem alguém clicar em Enviar.
+3. **Envio** — Edge Function `crm-email` usando a API do Gmail da conta da Leadrix, com escolha do alias remetente (precisa estar verificado no Gmail). Sem as credenciais configuradas, a mensagem fica na fila com o erro visível.
+
+O estúdio de conteúdo cria e-mails 1:1 direto na fila, na estrutura de mensagem
+ABM (sinal → hipótese → consequência → convite).
+
+## Timeline de relacionamento
+
+Na conta, todos os toques em ordem: ações ABM, interações, e-mails da
+mensageria, criação e movimentação de oportunidades e conteúdo produzido —
+com filtro por tipo e leitura do movimento da jornada em que a conta está.
+
+## Como os cálculos funcionam
+
+- **Custo de uma ação ABM** = Σ(horas × custo hora-homem) + Σ(quantidade × custo unitário das despesas).
+  O custo/hora é gravado no lançamento — reajustar alguém não reescreve o passado.
+- **Custo hora-homem** = custo mensal (salário + encargos + benefícios) ÷ horas produtivas, ou valor direto.
+- **Rateio:** custo lançado só na conta é dividido entre as oportunidades dela pelo valor estimado.
+- **Custo por lead** = custo total do período ÷ oportunidades criadas no período.
+- **Custo de conversão** = custo total do período ÷ oportunidades ganhas no período.
+- **ROI** = (receita fechada − custo total) ÷ custo total; com margem configurada, também sobre a margem.
+- **Custos fixos** mensais entram proporcionais aos dias do período.
+- **Comissão de indicação** entra no custo quando a venda acontece (e projetada sobre o valor ponderado nas abertas).
+
+## Como o ICP pontua a conta
+
+Sete dimensões, somando 100: tensão econômica (25), complexidade operacional
+(20), estágio de IA (15), condições de implantação (15), momento de compra (10),
+potencial de expansão (10), acesso e proximidade de prova (5). De 80 pontos é
+nível 1; de 65 a 79, nível 2; de 50 a 64, relacionamento; abaixo disso, fora da
+operação ativa. Bloqueadores (sem patrocinador, interesse só em ferramenta,
+empresa pequena demais…) tiram a conta da operação independentemente da nota.
+
+**Sinais de intenção** registrados na conta aumentam a prioridade no Radar e
+liberam a jogada de abordagem por sinal — porque em ABM a ação nasce de um
+acontecimento, não de uma sequência programada.
+
+## Como o Radar ABM decide
+
+1. Cada etapa tem um SLA (Configurações). Aging = dias na etapa ÷ SLA.
+2. Faixas: no prazo (≤1×), atenção (≤2×), crítico (≤3×), parado (>3×). Stand by com revisão vencida vira crítico; em Fechado, passar do SLA abre jogadas de expansão.
+3. O playbook escolhe as jogadas da etapa × faixa, respeitando o nível ABM (viagem e jantar só em 1:1 / 1:few).
+4. A urgência pondera faixa, valor e cobertura do comitê de compra.
+5. Criar a ação ou descartar (30 dias) tira a jogada da lista.
+
+A seleção é por regra (sem IA), para ser auditável. A IA entra no co-piloto e no conteúdo.
+
+## Rodando
 
 ```bash
 npm install
-npm run gen:demo     # regenera o JSON demo a partir da planilha
-npm run dev          # http://localhost:5174
+npm run dev        # http://localhost:5174 — modo demonstração
 ```
 
-## Setup do Supabase (produção)
-
-1. **Criar projeto** em https://supabase.com (novo, **não** reusar o ref do operacional).
-2. Copiar `.env.example` para `.env` e preencher:
-   - `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (frontend)
-   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (scripts — **nunca** no front)
-3. **Aplicar o schema**: no SQL Editor do Supabase, cole e rode
-   `supabase/migrations/0001_init.sql` (ou `supabase db push` com a CLI).
-4. **Importar a base**:
-   ```bash
-   npm run import:base   # usa BASE_XLSX_PATH ou o default em Downloads
-   ```
-5. `npm run dev` — o app sai do modo demo automaticamente quando as credenciais
-   `VITE_*` estão preenchidas.
-
-## Integração com o Consulcard Projetos (handoff)
-
-- **Trigger**: deal → `fechado` ⇒ `POST` para `OPERACIONAL_ONBOARDING_URL`
-  (`/functions/v1/crm-onboarding`).
-- **Auth**: HMAC-SHA256 (`X-Consulcard-Signature`, `X-Consulcard-Timestamp`), segredo
-  compartilhado `CRM_WEBHOOK_SECRET`.
-- **Idempotência**: `external_handoff_id` único por deal; retries com backoff.
-- **Catálogo**: o seletor de `macro_category`/`project_type` consome o catálogo do
-  operacional via `OPERACIONAL_CATALOG_URL` (não duplicar taxonomia).
-- **Webhook de retorno**: status do projeto atualiza `accounts.health` no pós-venda.
-
-> A camada de handoff (Edge Functions + tela de Pipeline) é o próximo incremento.
-
-## Importação de planilha — o que ela faz com a base
-
-- **Casa pelo nome da conta** (ignorando maiúsculas/minúsculas). Nome que já
-  existe é **atualizado**; nome novo cria conta. Não duplica.
-  > O CNPJ **não** é usado como chave: "Acme" e "Acme Brasil" viram
-  > duas contas. Padronize os nomes antes de subir.
-- **Coluna vazia não apaga o que já está no CRM.** A atualização só sobrescreve
-  o que veio preenchido, então reimportar não zera segmento/porte/termômetro
-  curados à mão. Vale também para valor recusado na validação.
-- **Planilha sem contatos preserva os contatos existentes** (a base tem muitas
-  linhas sem coluna de contato).
-- **Dado fora do padrão não é gravado**: o campo fica vazio e a linha aparece no
-  quadro de avisos da tela, com o **número da linha da planilha** para correção
-  na origem. Nada de enum inválido chegando ao banco.
-
-## Qualidade e integridade da base
-
-**Bot de QA** — varre todas as telas exercitando filtros, consultas, inclusões e
-exclusões, e reporta PASS/FAIL por verificação (91 checagens).
-
-```bash
-npm run dev            # precisa estar em MODO DEMO (sem .env) — o bot cria e apaga registros
-```
-
-Com o app aberto, cole `scripts/crm-bot.js` no console do navegador e rode:
-
-```js
-await crmBot()                             // varredura completa
-await crmBot({ only: ['contas','agenda'] })// só um trecho
-```
-
-**Auditoria de contatos** — compara o banco com a planilha-base e aponta perdas.
-Criada após o incidente de ago/2026 (ver `saveContacts` em `src/lib/data.js`):
-
-```bash
-npm run audit:contacts          # só relata
-npm run audit:contacts -- --fix # restaura o que falta (nunca apaga)
-```
-
-O casamento é por **e-mail**, caindo no nome só quando a planilha não traz
-e-mail: a coluna de nome da planilha costuma ser inconsistente (às vezes traz o
-próprio e-mail no lugar do nome, às vezes "Sobrenome, Nome"), e casar por nome acusava
-perda onde não havia. Confira a lista antes de usar `--fix` — contato que existe
-no CRM com nome diferente do da planilha viraria duplicata.
+Para usar o banco, siga o [DEPLOY.md](DEPLOY.md).
 
 ## Estrutura
 
 ```
 src/
-  components/   Layout, PageHeader, Badge
-  lib/          supabase.js, data.js (demo↔Supabase), constants.js
-  pages/        Dashboard, AccountsList, AccountView, Placeholder
-  demo/         accounts.json (gerado)
-scripts/
-  parse-base.mjs      parser canônico da planilha (regras §4)
-  import-base.mjs     popula o Supabase (service role)
-  gen-demo-data.mjs   gera o JSON do modo demo
+  data/        leadrix.js (pilares, mercados, voz), abmPlaybook.js (jogadas),
+               abmContext.js (ICP, sinais, campanhas, jornada), servicesCatalog.js
+  lib/         data.js (demo ↔ Supabase), costs.js, abm.js, content.js, messaging.js,
+               timeline.js, permissions.js, copilot.js, constants.js
+  components/  AbmSuggestionCard, AccountAbmPanels (ICP/sinais/timeline), ContentComposer,
+               AccountCostPanel, SalesCostSettings, SegmentFilters…
+  pages/       Dashboard, AccountsList, AccountView, Pipeline, RadarAbm, Conteudo,
+               Mensageria, CustosRoi, Config…
 supabase/
-  migrations/0001_init.sql   modelo de dados (§5)
+  migrations/  0001…0011 (0010 = taxonomia e custos · 0011 = perfis, comissão, mensageria)
+  functions/   crm-copilot, crm-content (Claude) · crm-email (Gmail) · crm-admin-users ·
+               crm-capture · handoff (dormente)
 ```
+
+## Regras que valem saber
+
+- `src/lib/data.js` é a única fronteira entre modo demo e Supabase.
+- `saveContacts` e `replaceTaskCostEntries` **inserem antes de apagar**, de propósito.
+- Taxonomia no front e no banco precisam andar juntas: mudou `leadrix.js`/`servicesCatalog.js`/`TASK_TYPES`, ajuste a migração e `supabase/functions/_shared/leadrix-knowledge.ts`.

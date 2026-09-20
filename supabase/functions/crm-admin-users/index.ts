@@ -2,7 +2,7 @@
 // com gestão via service-role). Ações: list | create | reset | set_admin | delete.
 //
 // - create: recebe { name, email, admin? }, GERA uma senha forte e a devolve para
-//   o admin repassar (fluxo igual ao Consulcard Projetos).
+//   o admin repassar (fluxo igual ao sistema de projetos).
 // - reset: gera uma nova senha e a devolve (não depende de e-mail/link).
 // Protegida: exige chamador autenticado com papel admin.
 

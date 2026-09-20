@@ -1,91 +1,75 @@
-// Edge Function: co-piloto ABM conversacional (briefing §8.5).
-// Modelo: última versão do Claude Sonnet. Base de conhecimento embutida no system
-// prompt (ABM + Consulcard + catálogo de serviços). Respostas didáticas.
+// Edge Function: co-piloto ABM conversacional da conta.
 //
 // Body: { accountId, messages: [{role:'user'|'assistant', content}] }
+// A conta é lida do banco (fonte de verdade); o conhecimento fixo da Leadrix,
+// dos pilares, dos mercados e de ABM vai no system prompt cacheado.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/hmac.ts'
+import { requireUser, authErrorResponse } from '../_shared/auth.ts'
+import { askClaude, errorMessage } from '../_shared/claude.ts'
+import { LEADRIX_KNOWLEDGE } from '../_shared/leadrix-knowledge.ts'
 
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
-const MODEL = Deno.env.get('ANTHROPIC_COPILOT_MODEL') || 'claude-sonnet-4-6'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-const KNOWLEDGE = `Você é o co-piloto de ABM da Consulcard.
+const ROLE = `Você é o co-piloto de ABM da Leadrix, usado pelo time comercial dentro do CRM.
 
-# Sobre a Consulcard
-Consultoria especializada em mercado financeiro, meios de pagamento, banking e
-regulatório (BACEN/COSIF). Atua como parceira estratégica de fintechs, bancos,
-cooperativas, instituições de pagamento e sociedades de crédito. O ERP Consulcard
-tem dois módulos: o CRM (relacionamento/ABM, upstream) e o Consulcard Projetos
-(execução dos projetos, downstream — recebe o handoff no fechamento).
-
-# Metodologia ABM (Account Based Marketing)
-Cada cliente é uma conta-alvo com estratégia individual. Princípios:
-- A conta é a unidade de trabalho; nada é genérico.
-- Toques planejados conta a conta (ligação, reunião, almoço, evento, conteúdo,
-  podcast, landing page, viagem).
-- Funil: lead → qualificado → proposta → negociação → fechado (→ stand by/perdido).
-- Foco em decisores e influenciadores; relacionamento de longo prazo.
-
-# Catálogo de serviços (âncoras têm ticket alto)
-Contábil/Regulatório (setup-contabil âncora, revisao-cosif, mapeamento-bacen),
-Meios de Pagamento (emissor-cartao âncora, migracao-processadora,
-estruturacao-adquirencia, setup-bandeira, operacao-cartao, otimizacao-tarifas),
-Banking/Conta Digital (baas âncora, conta-digital, pld-aml, kyc-onboarding),
-Consultoria Estratégica (diagnostico, estrategia-produto, modelo-negocio,
-transformacao-digital), Open Finance (pix-implantacao, open-finance-assessoria),
-Revisão Operacional (mandates-bandeira, suporte-regulatorio).
-
-# Como responder
-- Seja DIDÁTICO e EXPLICATIVO: ensine o raciocínio de ABM, não só a resposta.
-- Sempre considere o contexto da conta na tela (estágio, serviços de interesse,
-  histórico de interações, estratégia).
-- Sugira próximas ações concretas e acionáveis.
-- Use markdown leve (negrito, listas). Responda em português do Brasil.`
+Como responder:
+- Considere sempre a conta na tela: mercado, microssegmento, nível ABM, comitê de compra mapeado, oportunidades por pilar e etapa, histórico de interações e estratégia.
+- Ensine o raciocínio de ABM por trás da recomendação, sem aula longa.
+- Termine com próximas ações concretas (quem, qual canal, qual mensagem, qual indicador).
+- Quando faltar informação para recomendar bem, diga o que falta em vez de supor.
+- Markdown leve (negrito e listas). Português do Brasil.`
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
   try {
+    // A chave anon é pública: exige usuário logado, não só um JWT válido.
+    await requireUser(req)
     const { accountId, messages = [] } = await req.json()
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
     const { data: a } = await supabase
       .from('accounts')
-      .select('*, contacts(*), account_strategy(*), account_services(*, service:services(*)), interactions(*), tasks(*)')
+      .select('name, classification, segment, micro_segment, abm_tier, entry_door, account_size, site, contacts(name, role), account_strategy(*), account_services(stage, estimated_value_brl, stage_entered_at, service:services(name, macro_label)), interactions(summary, date)')
       .eq('id', accountId)
       .single()
 
     const ctx = a
       ? {
-          conta: a.name, classificacao: a.classification, estagio: a.crm_stage,
-          segmento: a.segment, porte: a.account_size,
-          termometro_comercial: a.commercial_temp != null ? `${a.commercial_temp}%` : null,
-          macro_categorias: a.macro_categories,
+          conta: a.name,
+          classificacao: a.classification,
+          mercado: a.segment,
+          microssegmento: a.micro_segment,
+          nivel_abm: a.abm_tier,
+          porta_de_entrada: a.entry_door,
+          porte: a.account_size,
+          site: a.site,
+          contatos: a.contacts,
           estrategia: a.account_strategy?.[0] || null,
-          servicos_interesse: (a.account_services || []).map((s: any) => ({ servico: s.service?.name, valor: s.estimated_value_brl, interesse: s.interest })),
-          contatos: (a.contacts || []).map((c: any) => ({ nome: c.name, cargo: c.role, email: c.email })),
-          interacoes_recentes: (a.interactions || []).slice(0, 8).map((i: any) => i.summary),
+          oportunidades: (a.account_services || []).map((s: any) => ({
+            servico: s.service?.name, pilar: s.service?.macro_label, etapa: s.stage,
+            valor: s.estimated_value_brl, na_etapa_desde: s.stage_entered_at,
+          })),
+          interacoes_recentes: (a.interactions || [])
+            .sort((x: any, y: any) => String(y.date).localeCompare(String(x.date)))
+            .slice(0, 8)
+            .map((i: any) => i.summary),
         }
       : { aviso: 'conta não encontrada' }
 
-    const system = `${KNOWLEDGE}\n\n# Contexto da conta na tela\n${JSON.stringify(ctx, null, 2)}`
-
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1500,
-        system,
-        messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
-      }),
+    const { text } = await askClaude({
+      knowledge: `${ROLE}\n\n${LEADRIX_KNOWLEDGE}`,
+      context: `# Conta na tela (hoje: ${new Date().toISOString().slice(0, 10)})\n${JSON.stringify(ctx, null, 2)}`,
+      messages: messages.filter((m: any) => m.role === 'user' || m.role === 'assistant').map((m: any) => ({ role: m.role, content: String(m.content) })),
+      maxTokens: 4000,
+      effort: 'medium',
     })
-    const data = await resp.json()
-    const reply = data?.content?.[0]?.text || 'Não consegui gerar uma resposta.'
-    return json({ reply })
+    return json({ reply: text || 'Não consegui gerar uma resposta.' })
   } catch (e) {
-    return json({ error: String(e) }, 500)
+    const denied = authErrorResponse(e, corsHeaders)
+    if (denied) return denied
+    return json({ error: errorMessage(e) }, 500)
   }
 })
 

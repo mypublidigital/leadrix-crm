@@ -1,4 +1,4 @@
-// Edge Function: dispara o handoff do CRM → Consulcard Projetos (briefing §9).
+// Edge Function: dispara o handoff do CRM → sistema de projetos (briefing §9).
 // - Monta o payload a partir da conta + serviços de interesse.
 // - Assina com HMAC-SHA256, envia com idempotência (external_id) e retry/backoff.
 // - Grava project_id/project_url no deal e loga em webhook_logs.
@@ -41,8 +41,8 @@ async function postWithRetry(rawBody: string): Promise<Response> {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Consulcard-Signature': signature,
-          'X-Consulcard-Timestamp': ts,
+          'X-Leadrix-Signature': signature,
+          'X-Leadrix-Timestamp': ts,
         },
         body: rawBody,
       })
@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
         billing_model: input.billing_model || 'milestone',
         signed_at: new Date().toISOString(),
       },
-      source: { crm: 'consulcard-crm', deal_url: `https://crm.consulcard.com.br/contas/${account.id}` },
+      source: { crm: 'leadrix-crm', deal_url: `${Deno.env.get('CRM_SITE_URL') || ''}/contas/${account.id}` },
     }
 
     const rawBody = JSON.stringify(payload)

@@ -11,6 +11,10 @@ import Config from './pages/Config'
 import Importar from './pages/Importar'
 import Captura from './pages/Captura'
 import Placeholder from './pages/Placeholder'
+import RadarAbm from './pages/RadarAbm'
+import Conteudo from './pages/Conteudo'
+import CustosRoi from './pages/CustosRoi'
+import Mensageria from './pages/Mensageria'
 import Login from './pages/Login'
 import { useAuth } from './lib/useAuth'
 
@@ -37,6 +41,10 @@ export default function App() {
         <Route path="contas/:id" element={<AccountView />} />
         <Route path="agenda" element={<Agenda />} />
         <Route path="pipeline" element={<Pipeline />} />
+        <Route path="radar" element={<RadarAbm />} />
+        <Route path="conteudo" element={<Conteudo />} />
+        <Route path="custos" element={<CustosRoi />} />
+        <Route path="mensageria" element={<Mensageria />} />
         <Route path="servicos" element={<Servicos />} />
         <Route path="captura" element={<Captura />} />
         <Route path="importar" element={<Importar />} />

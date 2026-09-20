@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -29,6 +29,9 @@
   .btn-outline {
     @apply btn border border-ink-300 bg-white text-ink-700 hover:bg-ink-50;
   }
+  .btn-dark {
+    @apply btn bg-ink-900 text-white hover:bg-ink-800;
+  }
   .input {
     @apply w-full rounded-lg border border-ink-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-ink-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200;
   }
@@ -37,5 +40,14 @@
   }
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+}
+
+@layer components {
+  .eyebrow {
+    @apply font-display text-[11px] font-medium uppercase tracking-[0.18em] text-ink-500;
+  }
+  .kpi {
+    @apply font-display text-2xl font-medium tracking-tight text-ink-900;
   }
 }

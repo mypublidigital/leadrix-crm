@@ -1,9 +1,9 @@
 {
-  "name": "consulcard-crm",
+  "name": "leadrix-crm",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Consulcard CRM — módulo de relacionamento ABM do ERP Consulcard (upstream do Consulcard Projetos).",
+  "description": "Leadrix CRM — CRM de Account Based Marketing da Leadrix: 4 pilares, 4 mercados, Radar ABM, custo de venda & ROI e estúdio de conteúdo.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

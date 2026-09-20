@@ -171,8 +171,8 @@ export default function Importar() {
             <div>
               <div className="text-sm font-semibold text-ink-800">Clique para selecionar um arquivo</div>
               <div className="text-xs text-ink-500">
-                CSV, XLSX ou XLS · colunas reconhecidas: Cliente, Contato (Nome/E-mail/Telefone), Macro Categorias,
-                Classificação, CNPJ, Segmento, Porte, Termômetro, Site, Status…
+                CSV, XLSX ou XLS · colunas reconhecidas: Cliente, Contato (Nome/E-mail/Telefone), Classificação,
+                CNPJ, Mercado, Microssegmento, Nível ABM, Porte, Termômetro, Site, Status…
               </div>
             </div>
             <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={onFile} />

@@ -8,6 +8,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/hmac.ts'
+import { requireUser, authErrorResponse } from '../_shared/auth.ts'
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
 const MODEL = Deno.env.get('ANTHROPIC_CAPTURE_MODEL') || 'claude-haiku-4-5-20251001'
@@ -25,7 +26,9 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY)
   try {
-    // identifica o usuário (verify_jwt já garante autenticação)
+    // A chave anon é pública e passa no verify_jwt: exige usuário logado.
+    await requireUser(req)
+    // identifica o usuário
     const authHeader = req.headers.get('Authorization') || ''
     const caller = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } })
     const { data: { user } } = await caller.auth.getUser()
@@ -87,6 +90,8 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, pre_lead: row })
   } catch (e) {
+    const denied = authErrorResponse(e, corsHeaders)
+    if (denied) return denied
     return json({ ok: false, error: String(e) }, 500)
   }
 })

@@ -1,76 +1,46 @@
-# Remix para a Leadrix — ponto de partida
+# Remix para a Leadrix — estado
 
-Este projeto é uma **cópia limpa** de um CRM ABM já em produção para outro
-cliente. O código veio inteiro; os dados e a identidade do cliente original,
-não. Este arquivo existe para a próxima conversa começar sabendo o que já foi
-feito e o que falta.
+Este projeto nasceu como cópia limpa de um CRM ABM de outro cliente. O remix
+para a Leadrix foi feito em set/2026. Este arquivo registra o que mudou e o que
+ainda depende de decisão.
 
-## O que já foi removido (não precisa refazer)
+## Feito
 
-| Item | Estado |
+| Item | Onde |
 |---|---|
-| Histórico do Git do projeto original | não veio — repositório novo, sem ancestral comum |
-| Base de demonstração (96 contas e 72 contatos reais) | `src/demo/accounts.json` esvaziado (`[]`) |
-| Valores comerciais do catálogo (21 serviços) | zerados (`suggested_value_brl: null`) |
-| Credenciais (`.env`, `.env.local`) | não vieram (o `.gitignore` já bloqueia) |
-| Vínculos com Supabase e Vercel do original (`.vercel`, `supabase/.temp`) | não vieram |
-| Menções a clientes reais em comentários | generalizadas |
+| Identidade Leadrix (menu preto, azul de interação, verde da marca, Jost/Manrope, logo) | `tailwind.config.js`, `src/index.css`, `Logo.jsx`, `Layout.jsx`, `public/` |
+| 4 pilares de entrega e catálogo de serviços por pilar | `src/data/leadrix.js`, `src/data/servicesCatalog.js` |
+| 4 mercados com decisores, dores e indicadores; microssegmentos editáveis e filtros encadeados | `src/data/leadrix.js`, `SegmentFilters.jsx`, Configurações |
+| Nível ABM (1:1, 1:few, 1:many), porta de entrada, cobertura do comitê de compra | cadastro e visão da conta |
+| Tabela de custo de venda (hora-homem, despesas, horas por ação, fixos, margem) | `SalesCostSettings.jsx`, `src/lib/costs.js` |
+| Custo por ação, oportunidade e conta; custo do lead, de conversão e ROI | `TaskModal.jsx`, `AccountCostPanel.jsx`, `CustosRoi.jsx` |
+| Radar ABM: jogadas proativas por aging, com custo estimado | `src/data/abmPlaybook.js`, `src/lib/abm.js`, `RadarAbm.jsx` |
+| Estúdio de conteúdo (blog, LinkedIn, Instagram, e-mail 1:1) ligado às jogadas | `src/lib/content.js`, `ContentComposer.jsx`, `crm-content` |
+| Co-piloto com conhecimento da Leadrix e de ABM | `copilot.js`, `crm-copilot`, `_shared/leadrix-knowledge.ts` |
+| Schema e seeds | `supabase/migrations/0010_leadrix.sql`, `db/install.sql` |
+| Perfis Admin / Marketing / Vendas, com regra no banco (só admin exclui oportunidade; custo restrito) | `src/lib/permissions.js`, `useAuth.js`, migração `0011` |
+| Origem do lead (Boomit, MyPubli, sócios, Outros) e comissão de indicação no custo de conversão | `AccountEditModal.jsx`, `src/lib/costs.js`, `CustosRoi.jsx` |
+| Contexto estratégico de ABM: pontuação ICP, sinais, campanhas, jornada, estrutura da mensagem, métricas | `src/data/abmContext.js`, `AccountAbmPanels.jsx`, `Dashboard.jsx` |
+| Mensageria: modelos por evento, fila e envio pelo Gmail com alias | `src/lib/messaging.js`, `pages/Mensageria.jsx`, `supabase/functions/crm-email` |
+| Timeline de relacionamento (ações, interações, e-mails, funil, conteúdo) | `src/lib/timeline.js`, `AccountAbmPanels.jsx` |
+| Ambiente publicado (schema + functions no projeto `werxdvpowcpomleizhes`) | ver `DEPLOY.md` |
 
-Confirmado por varredura: **zero** ocorrências de nomes de clientes do projeto
-original. O build passa.
+## Pendente de decisão
 
-## O que falta — o trabalho do remix
-
-### 1. Identidade (mecânico, ~90 ocorrências)
-O nome do cliente original ainda aparece em ~30 arquivos: `package.json`,
-`index.html`, `README.md`, `DEPLOY.md`, `src/components/Logo.jsx`,
-`src/components/Layout.jsx`, `tailwind.config.js` (paleta), migrations e Edge
-Functions. É busca-e-substitui mais o logo e as cores.
-
-### 2. Estrutura de campos — onde o esforço se concentra
-Mudar um campo hoje exige tocar em **seis** lugares. Vale decidir logo se
-compensa centralizar essas definições antes de mexer:
-
-1. `supabase/migrations/` — o schema
-2. `src/lib/constants.js` — classificação, segmento, porte, etapas do funil,
-   termômetro, tipos de tarefa, origem do lead
-3. `src/data/servicesCatalog.js` — **21 serviços de meios de pagamento**;
-   a Leadrix é agência, a taxonomia é outra por completo
-4. Formulários: `AccountEditModal`, `TaskModal`, `OpportunityModal`
-5. Filtros: `AccountsList`, `Agenda`
-6. `src/lib/parseUpload.js` — mapeamento de colunas do importador
-
-### 3. Integração que não se aplica
-O original faz *handoff* para um sistema operacional irmão via HMAC
-(`supabase/functions/crm-handoff`, `crm-cancel`, `projects-status`, `catalog`).
-Sem esse sistema do lado da Leadrix, essas funções não têm para onde apontar —
-decidir se some, se vira outra coisa, ou se fica dormente.
-
-### 4. Infraestrutura nova (nada é reaproveitável)
-- Projeto **Supabase** próprio (aplicar as migrations `0001`→`0008` em ordem)
-- Projeto **Vercel** próprio
-- Repositório **GitHub** próprio
-
-## Como rodar agora
-
-```bash
-npm install
-npm run dev        # http://localhost:5174
-```
-
-Sobe em **modo demo** (sem `.env`), lendo `src/demo/accounts.json` — que está
-vazio. Dá para evoluir a estrutura de campos inteira sem banco nenhum e só
-provisionar o Supabase quando o modelo estiver fechado.
-
-## O que vale saber sobre o código
-
-- `src/lib/data.js` é a única fronteira entre modo demo (localStorage) e
-  Supabase. Toda tela passa por ele.
-- `saveContacts` **insere antes de apagar**, de propósito: a ordem inversa já
-  causou perda de contatos em produção. Não inverter.
-- A importação **atualiza** conta existente (casada pelo nome) e **não apaga**
-  campo que a planilha traz vazio — reimportar não zera o que foi curado à mão.
-- `scripts/crm-bot.js` é um bot de QA que varre todas as telas. Roda **só em
-  modo demo**: ele cria e apaga registros.
-- `scripts/audit-contacts.mjs` audita contatos contra uma planilha-base. Se a
-  Leadrix não tiver esse fluxo de planilha, provavelmente não serve.
+1. **Microssegmentos de Indústria, Varejo e Empresas Digitais** — o site não
+   lista; entraram como proposta inicial.
+2. **Preços dos serviços** — o catálogo nasce sem valor (o modo demo usa
+   exemplos).
+3. **Custos reais** — hora-homem, despesas e fixos da operação comercial.
+4. **Credenciais do Gmail** — sem elas a mensageria enfileira mas não envia
+   (ver DEPLOY §3).
+5. **Primeiro usuário admin** — precisa ser criado no painel do Supabase
+   (DEPLOY §1); criar conta com senha não é tarefa que eu faça.
+6. **Envio automático de e-mail** — o app não tem agendador: modelos automáticos
+   deixam a mensagem pronta na fila. Decidir se haverá disparo sem revisão.
+7. **Handoff** — as functions de integração com sistema de projetos ficam
+   dormentes até existir um.
+8. **`scripts/crm-bot.js`** (QA automatizado) ainda cobre as telas antigas; não
+   exercita Radar, Estúdio, Custos e Mensageria.
+9. **Rotação de chaves** — Anthropic e Supabase passaram por conversa; vale
+   trocar quando o ambiente estabilizar.

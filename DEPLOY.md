@@ -1,168 +1,134 @@
-# Deploy — Consulcard CRM
+# Deploy — Leadrix CRM
 
-Publicação em **Supabase** (banco + auth + edge functions) **separado do operacional**
-e **Vercel** (frontend). Siga na ordem. Tudo que precisa de você está marcado com 👉.
+## Estado atual (20/09/2026)
 
-> Pré-requisitos: Node 18+ (ok), conta no [Supabase](https://supabase.com),
-> conta no [Vercel](https://vercel.com), conta no [GitHub](https://github.com),
-> (opcional) [API key da Anthropic](https://console.anthropic.com) para o co-piloto.
-> As CLIs são usadas via `npx` (não precisa instalar global).
-
----
-
-## 1. Criar o projeto Supabase do CRM
-
-👉 Em https://supabase.com → **New project**:
-- Nome: `consulcard-crm` (projeto **novo**, NÃO o operacional `djdooeszhpftbiyzznli`).
-- Região: `South America (São Paulo)`.
-- Defina e guarde a senha do banco.
-
-👉 Em **Project Settings → API**, copie:
-- **Project URL** → `https://XXXX.supabase.co`
-- **anon public** key
-- **service_role** key (secreta — nunca vai pro frontend)
-
-👉 Em **Project Settings → General**, copie o **Reference ID** (`XXXX`).
+| Item | Estado |
+|---|---|
+| Projeto Supabase `werxdvpowcpomleizhes` | **schema aplicado** (migrations 0001 → 0011) |
+| Seeds | 18 serviços (4 pilares), 28 microssegmentos, 10 categorias de despesa, 4 modelos de e-mail |
+| Edge Functions | **publicadas**: `crm-copilot`, `crm-content`, `crm-email`, `crm-admin-users`, `crm-capture` |
+| Secrets | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL=claude-opus-5`, `GMAIL_SENDER` |
+| Pendente | primeiro usuário admin · credenciais do Gmail · chave `service_role` correta · projeto na Vercel |
 
 ---
 
-## 2. Aplicar o schema (migrations)
+## 1. Primeiro usuário admin 👉 você
 
-**Opção A — CLI (recomendado):**
-```bash
-npx supabase login                 # abre o navegador
-npx supabase link --project-ref XXXX
-npx supabase db push               # aplica 0001, 0002, 0003 em ordem
-```
+Criar usuário com senha é coisa sua, não minha. No painel:
+**Authentication → Users → Add user** (e-mail + senha, marque *Auto Confirm*).
 
-**Opção B — SQL Editor (manual):** no painel do Supabase → **SQL Editor**, rode
-os arquivos **na ordem**, um de cada vez:
-1. `supabase/migrations/0001_init.sql`
-2. `supabase/migrations/0002_services.sql`
-3. `supabase/migrations/0003_pipeline_strategy.sql`
+Depois, no **SQL Editor**, dê o papel de administrador:
 
-> Se o passo 3 reclamar de `ALTER TYPE ... ADD VALUE ... cannot run inside a
-> transaction`, rode **só essa primeira linha** sozinha e depois o resto do arquivo.
-
----
-
-## 3. Secrets das Edge Functions
-
-👉 Defina os segredos (server-side, nunca no frontend):
-```bash
-npx supabase secrets set \
-  CRM_WEBHOOK_SECRET="<um-segredo-forte-compartilhado-com-o-operacional>" \
-  OPERACIONAL_ONBOARDING_URL="https://djdooeszhpftbiyzznli.supabase.co/functions/v1/crm-onboarding" \
-  OPERACIONAL_CANCEL_URL="https://djdooeszhpftbiyzznli.supabase.co/functions/v1/crm-cancel-onboarding" \
-  ANTHROPIC_API_KEY="sk-ant-..." \
-  ANTHROPIC_COPILOT_MODEL="claude-sonnet-4-6" \
-  CRM_SITE_URL="https://SEU-APP.vercel.app"
-```
-> `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` já são injetados
-> automaticamente nas functions pelo Supabase — não precisa setar.
-
----
-
-## 4. Deploy das Edge Functions
-
-```bash
-npx supabase functions deploy crm-handoff
-npx supabase functions deploy crm-cancel
-npx supabase functions deploy projects-status
-npx supabase functions deploy crm-copilot
-npx supabase functions deploy crm-admin-users
-```
-> O `verify_jwt` por função já está em `supabase/config.toml` (HMAC nas de webhook,
-> JWT nas autenticadas).
-
----
-
-## 5. Auth: primeiro usuário admin
-
-👉 No painel → **Authentication → Users → Add user** (email + senha).
-👉 Para esse usuário ter acesso à gestão de usuários, marque o papel admin.
-No **SQL Editor**:
 ```sql
 update auth.users
-set raw_app_meta_data = raw_app_meta_data || '{"role":"admin"}'
-where email = 'voce@consulcard.com.br';
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"admin"}'::jsonb
+where email = 'marcelo@leadrix.com.br';
+```
+
+Os perfis válidos são `admin`, `marketing` e `vendas` — quem não tem papel
+definido entra como **vendas** (o mais restrito). Depois do primeiro admin, os
+outros usuários saem da tela **Configurações → Usuários**.
+
+Para mudar o papel de alguém:
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"marketing"}'::jsonb
+where email = 'pessoa@leadrix.com.br';
 ```
 
 ---
 
-## 6. Importar a base de clientes
+## 2. Chave `service_role` 👉 você
 
-👉 No seu `.env` local (copie de `.env.example`) preencha `SUPABASE_URL` e
-`SUPABASE_SERVICE_ROLE_KEY`, e rode:
+A chave enviada como `service_role` era, na verdade, a `anon` (o payload dizia
+`"role":"anon"`). Pegue a correta em **Project Settings → API Keys** e coloque no
+`.env` em `SUPABASE_SERVICE_ROLE_KEY` — ela só é usada pelos scripts locais
+(importador). As Edge Functions recebem a chave de serviço automaticamente.
+
+O frontend usa a `anon`, que é pública de propósito. Por isso as functions não
+confiam só no `verify_jwt`: `_shared/auth.ts` exige um usuário logado de
+verdade, senão qualquer pessoa com a chave pública mandaria e-mail pela conta da
+Leadrix.
+
+---
+
+## 3. Mensageria: credenciais do Gmail 👉 você
+
+O CRM envia pela API do Gmail da conta `marcelo@leadrix.com.br`. É preciso um
+cliente OAuth e um refresh token — uma vez só:
+
+1. **Google Cloud Console** → novo projeto (ou um existente) → **APIs & Services → Library** → habilite **Gmail API**.
+2. **OAuth consent screen**: tipo *External*, publique ou adicione `marcelo@leadrix.com.br` como usuário de teste. Escopo: `https://www.googleapis.com/auth/gmail.send`.
+3. **Credentials → Create credentials → OAuth client ID**, tipo **Desktop app**. Guarde *Client ID* e *Client secret*.
+4. Gere o refresh token autorizando com a conta da Leadrix (OAuth Playground ou script local), pedindo `access_type=offline` e o escopo `gmail.send`.
+5. Grave os segredos:
+
 ```bash
-npm run import:base
+npx supabase secrets set --project-ref werxdvpowcpomleizhes \
+  GMAIL_CLIENT_ID="..." GMAIL_CLIENT_SECRET="..." GMAIL_REFRESH_TOKEN="..."
 ```
-> Ou use a tela **Importador** do app depois de publicado (upload CSV/Excel).
+
+**Aliases:** cada remetente alternativo precisa estar em *Gmail → Configurações
+→ Contas e importação → Enviar e-mail como*, verificado. Cadastre os aliases
+autorizados em **Mensageria → Remetente**; o Google recusa um `From` que não
+esteja verificado.
+
+**Envio automático:** o CRM não tem agendador próprio. Modelos em automático
+geram a mensagem e deixam na fila como *agendado*; o envio sai quando alguém
+clica em Enviar. Para disparar sozinho, agende uma chamada (pg_cron ou
+Scheduled Function) que processe os *agendados* com data vencida — decida antes
+se quer e-mail saindo sem revisão humana.
 
 ---
 
-## 7. Frontend no Vercel
+## 4. Frontend na Vercel 👉 você
 
-**Deploy automático via GitHub (configuração atual)**
+1. Conecte `github.com/mypublidigital/leadrix-crm` à Vercel.
+2. **Settings → Environment Variables**:
+   - `VITE_SUPABASE_URL` = `https://werxdvpowcpomleizhes.supabase.co`
+   - `VITE_SUPABASE_ANON_KEY` = a chave anon (publishable)
+3. Cada push na branch de produção publica. Com as duas variáveis, o app sai do
+   modo demonstração.
 
-O projeto já está ligado a `github.com/mypublidigital/consulcard-crm`, branch **`main`**.
-Publicar é só:
+---
 
+## 5. Configuração inicial dentro do app
+
+Em **Configurações** (como admin ou marketing):
+
+1. **Custo de venda** — recursos com custo mensal e horas/mês, custos unitários das despesas, custos fixos e margem de contribuição.
+2. **SLA de aging** — dias por etapa usados pelo Radar ABM.
+3. **Microssegmentos** — ajuste a lista (Indústria, Varejo e Empresas Digitais vieram como proposta).
+4. **Serviços** — valor sugerido de cada serviço dos quatro pilares.
+5. **Mensageria → Remetente** — nome, assinatura, aliases e a trava de envio automático.
+
+---
+
+## 6. Como reaplicar o schema
+
+**CLI:**
 ```bash
-git push
+export SUPABASE_ACCESS_TOKEN=...            # token pessoal do Supabase
+npx supabase link --project-ref werxdvpowcpomleizhes
+npx supabase db push
 ```
 
-A Vercel constrói e publica sozinha. Não é mais necessário token nem `vercel deploy`.
+**SQL Editor:** cole `db/install.sql` (equivale às migrations 0001 → 0011, já com
+o ajuste do estágio *standby* para rodar numa transação só).
 
-Onde ficam as configurações no painel da Vercel (projeto `consulcard-crm`):
-
-| O quê | Onde |
-|---|---|
-| Repositório conectado | **Settings → Git** → *Connected Git Repository* |
-| **Branch de produção** | **Settings → Environments → Production** → *Branch Tracking* |
-| Variáveis (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) | **Settings → Environment Variables** |
-| Forçar republicação | **Deployments → ⋯ → Redeploy** |
-
-> A Vercel só constrói em push **novo**. Um commit que já estava no repositório
-> antes de conectar não dispara build sozinho — nesse caso, use *Redeploy* ou
-> faça um novo push.
-
-⚠️ Não conectar este projeto ao repositório `consulcard-app`: aquele é do
-**Consulcard Projetos** (módulo 1). Cada módulo tem seu próprio repositório,
-seu projeto Supabase e seu domínio.
-
-**Opção B — Vercel CLI:**
+**Functions:**
 ```bash
-npx vercel               # primeira vez: vincula o projeto
-npx vercel env add VITE_SUPABASE_URL
-npx vercel env add VITE_SUPABASE_ANON_KEY
-npx vercel --prod
+npx supabase functions deploy crm-copilot crm-content crm-email crm-admin-users crm-capture \
+  --project-ref werxdvpowcpomleizhes --use-api
 ```
 
-> Quando `VITE_SUPABASE_URL`/`ANON_KEY` estão setadas, o app sai do modo demo
-> automaticamente e passa a ler/gravar no Supabase.
-
 ---
 
-## 8. Conectar o operacional (depois)
+## 7. Antes de colocar usuários reais
 
-Estes endpoints precisam existir **do lado do Consulcard Projetos** para o handoff
-funcionar de ponta a ponta (hoje só existe o lado do CRM):
-- `POST /functions/v1/crm-onboarding` (recebe o handoff, valida HMAC, cria projeto)
-- `POST /functions/v1/crm-cancel-onboarding` (cancelamento)
-- `GET` de catálogo (taxonomia §10) para o CRM consumir
-- chamar `POST {CRM}/functions/v1/projects-status` em mudanças de status
-
-O segredo `CRM_WEBHOOK_SECRET` deve ser **o mesmo** nos dois módulos.
-
----
-
-## 9. Smoke test pós-deploy
-
-- [ ] Login no app publicado (usuário do passo 5).
-- [ ] Contas (ABM) lista a base importada.
-- [ ] Abrir uma conta → editar, registrar interação, co-piloto responde (Sonnet).
-- [ ] Pipeline → arrastar card, abrir detalhe, mover para Fechado dispara o handoff
-      (vai falhar até o operacional ter o endpoint — esperado; ver `webhook_logs`).
-- [ ] Config → criar usuário, cadastrar motivo de não-venda e serviço.
-- [ ] Importador → subir um CSV de teste.
+- [ ] Primeiro admin criado e papel aplicado (passo 1).
+- [ ] Testar cada perfil: Vendas não deve ver custo nem apagar oportunidade.
+- [ ] Serviço de e-mail próprio para convites e recuperação de senha (Guia §9.6) — o SMTP embutido do Supabase é limitado.
+- [ ] Rotacionar as chaves que passaram por conversa (Anthropic e Supabase) quando o ambiente estabilizar.
+- [ ] Smoke test: login, criar conta com mercado/microssegmento/origem, pontuar ICP, criar ação ABM com custo, abrir Radar, gerar conteúdo, mandar um e-mail de teste para você mesmo, conferir Custo de venda & ROI.

@@ -1,5 +1,5 @@
 // Edge Function: webhook de retorno do operacional (briefing §9.7).
-// O Consulcard Projetos notifica mudanças de status do projeto; o CRM atualiza a
+// O sistema de projetos notifica mudanças de status do projeto; o CRM atualiza a
 // saúde da conta no pós-venda. Autenticado por HMAC (mesmo segredo do handoff).
 //
 // POST { project_id, external_id, status, timestamp }
@@ -15,8 +15,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   const raw = await req.text()
-  const sig = req.headers.get('X-Consulcard-Signature') || ''
-  const ts = req.headers.get('X-Consulcard-Timestamp') || ''
+  const sig = req.headers.get('X-Leadrix-Signature') || ''
+  const ts = req.headers.get('X-Leadrix-Timestamp') || ''
   if (!(await verifyBody(SECRET, raw, ts, sig))) {
     return json({ ok: false, error: 'assinatura inválida' }, 401)
   }

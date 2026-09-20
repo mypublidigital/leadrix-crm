@@ -1,5 +1,5 @@
 -- ╔══════════════════════════════════════════════════════════════╗
--- ║  Consulcard CRM — modelo de dados (briefing §5)                ║
+-- ║  Leadrix CRM — modelo de dados (base)                         ║
 -- ║  Projeto Supabase PRÓPRIO do CRM (não o operacional).          ║
 -- ╚══════════════════════════════════════════════════════════════╝
 

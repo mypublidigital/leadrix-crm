@@ -5,7 +5,7 @@ import { copilotChat } from '../lib/copilot'
 const SUGGESTIONS = [
   'Qual a próxima ação de ABM para esta conta?',
   'Escreva um roteiro de ligação para o contato.',
-  'Sugira uma pauta de podcast/conteúdo para esta conta.',
+  'Sugira um conteúdo personalizado para o sponsor desta conta.',
   'Como devo abordar a estratégia ABM aqui?',
 ]
 
@@ -60,7 +60,7 @@ export default function CopilotChat({ account }) {
           <div className="space-y-3">
             <p className="text-sm text-ink-600">
               Pergunte qualquer coisa sobre como conduzir o ABM desta conta. O agente considera o
-              contexto da Consulcard, o estágio do funil e os serviços de interesse.
+              contexto da Leadrix, o mercado e o microssegmento da conta, o comitê de compra e as oportunidades por pilar.
             </p>
             <div className="flex flex-col gap-1.5">
               {SUGGESTIONS.map((s) => (
