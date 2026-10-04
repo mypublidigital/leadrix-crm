@@ -181,6 +181,31 @@ export const MARKETS = {
     ],
     microProposto: true,
   },
+  // Quinta categoria, fora dos quatro mercados do site: a conta que não se
+  // encaixa ainda assim precisa entrar na base. O setor real vai no campo de
+  // especificação da conta, e as dores/indicadores aqui são os genéricos da
+  // Leadrix (margem, capacidade, qualidade, risco, receita) — não invente
+  // especificidade de um setor que não foi estudado.
+  outros: {
+    id: 'outros',
+    label: 'Outros (especificar)',
+    generic: true,
+    personas: ['CEO ou sócio(a)', 'Diretor(a) de Operações', 'Liderança de Tecnologia'],
+    pains: [
+      'Processos manuais que consomem margem e capacidade',
+      'Uso de IA disperso, sem método nem indicador',
+      'Iniciativas que ficam em prova de conceito',
+    ],
+    useCases: {
+      'estruturas-hibridas': 'Redesenhar papéis entre pessoas, agentes e sistemas',
+      'agentes-processos': 'Automatizar o processo que mais consome tempo e retrabalho',
+      'educacao-adocao': 'Formar as lideranças e padronizar o uso com playbook',
+      'novos-negocios': 'Transformar conhecimento e dados em nova linha de receita',
+    },
+    indicators: ['Margem', 'Capacidade', 'Qualidade', 'Risco', 'Receita'],
+    entry: 'Diagnóstico Leadrix para mapear processos, dados e prioridades',
+    micro: [],
+  },
 }
 export const MARKET_IDS = Object.keys(MARKETS)
 
@@ -262,6 +287,12 @@ export const MARKET_ABM = {
     profile: 'Negócios em escala com muitas iniciativas de IA, custos crescentes e dificuldade de conectar produto, operação e monetização.',
     tension: 'Converter experimentação em arquitetura e vantagem competitiva.',
     entryOffer: 'Avaliação rápida do portfólio e sprint executivo.',
+  },
+  outros: {
+    priority: 'seletiva',
+    profile: 'Conta fora dos quatro mercados mapeados — o setor fica na especificação do cadastro.',
+    tension: 'A definir caso a caso: registre a hipótese de valor na estratégia da conta.',
+    entryOffer: 'Diagnóstico Leadrix.',
   },
 }
 

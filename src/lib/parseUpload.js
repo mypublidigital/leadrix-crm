@@ -118,6 +118,7 @@ const COL = {
   cnpj: ['CNPJ'],
   segment: ['Mercado', 'Segmento', 'Macrossegmento', 'Macro segmento'],
   micro: ['Microssegmento', 'Micro segmento', 'Subsegmento'],
+  segmentOther: ['Mercado (especificar)', 'Especificar mercado'],
   tier: ['Nível ABM', 'Nivel ABM', 'Tier ABM', 'Tier'],
   accountSize: ['Porte'],
   campaign: ['Campanha'],
@@ -221,6 +222,7 @@ export async function parseUploadFile(file) {
       cnpj: pickComLinha(grp, COL.cnpj),
       segment: pickComLinha(grp, COL.segment),
       micro: pickComLinha(grp, COL.micro),
+      segmentOther: pickComLinha(grp, COL.segmentOther),
       tier: pickComLinha(grp, COL.tier),
       accountSize: pickComLinha(grp, COL.accountSize),
       commercialTemp: pickComLinha(grp, COL.commercialTemp),
@@ -239,6 +241,12 @@ export async function parseUploadFile(file) {
     const tier = mapDomain(src.tier.valor, ABM_TIERS_DOMAIN, 'Nível ABM')
     const accountSize = mapDomain(src.accountSize.valor, ACCOUNT_SIZES, 'Porte')
     const commercialTemp = mapCommercialTemp(src.commercialTemp.valor)
+    // "Outros" sem a especificação é recusado pelo banco: vira aviso aqui.
+    if (segment.value === 'outros' && !src.segmentOther.valor) {
+      segment.value = null
+      segment.campo = 'Mercado (especificar)'
+      segment.warning = 'Mercado "Outros" exige a coluna "Mercado (especificar)" preenchida — mercado não importado.'
+    }
     const campaign = mapDomain(src.campaign.valor, CAMPAIGN_DOMAIN, 'Campanha')
     const leadSource = mapDomain(src.leadSource.valor, LEAD_SOURCES, 'Canal de origem')
     const originSource = mapDomain(src.originSource.valor, LEAD_ORIGINATORS, 'Origem do lead')
@@ -279,6 +287,7 @@ export async function parseUploadFile(file) {
       segment: segment.value,
       // Microssegmento é texto da tabela editável; só grava junto com um mercado válido.
       micro_segment: segment.value ? src.micro.valor || null : null,
+      segment_other: segment.value === 'outros' ? src.segmentOther.valor || null : null,
       abm_tier: tier.value,
       account_size: accountSize.value,
       commercial_temp: commercialTemp.value,

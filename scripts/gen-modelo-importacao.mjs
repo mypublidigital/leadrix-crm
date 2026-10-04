@@ -25,7 +25,7 @@ const { CAMPAIGNS } = await import(new URL('data/abmContext.js', root).href)
 const { MARKETS, MARKET_IDS } = await import(new URL('data/leadrix.js', root).href)
 
 const HEADERS = [
-  'Cliente', 'Razão social', 'CNPJ', 'Site', 'Classificação', 'Mercado', 'Microssegmento', 'Porte',
+  'Cliente', 'Razão social', 'CNPJ', 'Site', 'Classificação', 'Mercado', 'Mercado (especificar)', 'Microssegmento', 'Porte',
   'Nível ABM', 'Campanha', 'Termômetro', 'Canal de origem', 'Origem do lead',
   'Origem (especificar)', 'Quem indicou', 'Comissão de indicação (%)',
   'Contato (Nome)', 'Contato (Cargo)', 'Contato (E-mail)', 'Contato (Telefone)', 'Observações',
@@ -77,6 +77,7 @@ const INSTRUCOES = [
   ['Cargo do contato', 'Vale preencher: é o que monta o mapa do grupo decisor (patrocinador, operações, TI, financeiro, jurídico).'],
   ['Comissão', 'Informe o número do percentual (10 = 10%). Em branco, a conta fica sem comissão de indicação.'],
   ['Origem "Outros"', 'Exige a coluna "Origem (especificar)" preenchida.'],
+  ['Mercado "Outros"', 'Exige a coluna "Mercado (especificar)" com o setor da conta.'],
   ['Colunas', 'A ordem não importa e colunas desconhecidas são ignoradas. Pode apagar as colunas que não usar.'],
   ['', ''],
   ['Onde importar', 'CRM → Importador → selecione o arquivo → confira a pré-visualização e os avisos → Importar.'],

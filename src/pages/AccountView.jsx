@@ -218,7 +218,9 @@ export default function AccountView() {
                 <a href={a.site.startsWith('http') ? a.site : `https://${a.site}`} target="_blank" rel="noreferrer"
                   className="inline-flex items-center gap-1 text-brand-600 hover:underline"><Globe size={14} /> {a.site}</a>
               ) : '—'}</Row>
-              <Row label="Mercado">{SEGMENTS[a.segment] || '—'}</Row>
+              <Row label="Mercado">
+                {a.segment === 'outros' ? (a.segment_other || 'Outros') : (SEGMENTS[a.segment] || '—')}
+              </Row>
               <Row label="Microssegmento">{a.micro_segment || '—'}</Row>
               <Row label="Nível ABM">
                 {a.abm_tier

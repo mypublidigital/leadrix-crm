@@ -25,6 +25,7 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
     classification: account.classification || 'lead',
     segment: account.segment || '',
     micro_segment: account.micro_segment || '',
+    segment_other: account.segment_other || '',
     abm_tier: account.abm_tier || '',
     entry_door: account.entry_door || '',
     account_size: account.account_size || '',
@@ -60,6 +61,8 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
   // válido; e-mail de contato idem. Não deixa entrar dado que a importação
   // rejeitaria.
   const cnpjInvalido = f.cnpj.trim() !== '' && !isValidCNPJ(f.cnpj)
+  // Mercado "Outros" sem o setor escrito é recusado pelo banco — barra aqui.
+  const mercadoOutroFaltando = f.segment === 'outros' && !f.segment_other.trim()
   const emailsInvalidos = contacts
     .map((c, i) => ({ i, email: (c.email || '').trim() }))
     .filter((c) => c.email !== '' && !isValidEmail(c.email))
@@ -85,6 +88,7 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
       classification: f.classification,
       segment: f.segment || null,
       micro_segment: f.micro_segment || null,
+      segment_other: f.segment === 'outros' ? f.segment_other.trim() || null : null,
       abm_tier: f.abm_tier || null,
       entry_door: f.entry_door || null,
       account_size: f.account_size || null,
@@ -137,7 +141,7 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
     </div>
   )
 
-  const bloqueado = busy || !f.name.trim() || cnpjInvalido || emailsInvalidos.length > 0
+  const bloqueado = busy || !f.name.trim() || cnpjInvalido || emailsInvalidos.length > 0 || mercadoOutroFaltando
 
   return (
     <Modal wide title={isNew ? 'Nova conta' : `Editar conta — ${account.name}`} onClose={onClose}
@@ -172,6 +176,15 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
             <option value="">—</option>
             {Object.entries(SEGMENTS).map(([v, lbl]) => <option key={v} value={v}>{lbl}</option>)}
           </select>
+          {f.segment === 'outros' && (
+            <>
+              <input className={`input mt-2 ${mercadoOutroFaltando ? 'border-rose-400' : ''}`} value={f.segment_other}
+                onChange={set('segment_other')} placeholder="Qual mercado? Ex.: Saúde, Educação, Energia" />
+              {mercadoOutroFaltando && (
+                <p className="mt-1 text-xs text-rose-600">Diga qual é o mercado — sem isso a categoria vira um balaio.</p>
+              )}
+            </>
+          )}
         </div>
         <div>
           <label className="label">Microssegmento</label>
