@@ -8,6 +8,7 @@ import { StageBadge, StatusBadge, ThermometerBadge } from './Badge'
 import { getAccount, updateAccountService, listLostReasons, listRoster } from '../lib/data'
 import { opportunityAging } from '../lib/finance'
 import AccountCostPanel from './AccountCostPanel'
+import AccountFilesPanel from './AccountFilesPanel'
 import AbmSuggestionCard from './AbmSuggestionCard'
 import { PillarBadge } from './SegmentFilters'
 import { suggestForOpportunity, opportunityAgingState } from '../lib/abm'
@@ -159,6 +160,8 @@ export default function OpportunityModal({ opportunity, onClose }) {
             <textarea className="input min-h-[90px]" value={notes} onChange={(e) => setNotes(e.target.value)}
               placeholder="Notas internas sobre esta oportunidade…" />
           </div>
+
+          {a && <AccountFilesPanel account={a} opportunities={accountOpps} opportunityId={opp.id} />}
 
           {a && can('costs.view') && <AccountCostPanel account={a} opportunities={accountOpps} focusOpportunityId={opp.id} />}
         </div>

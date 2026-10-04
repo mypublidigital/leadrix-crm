@@ -1044,6 +1044,110 @@ export async function dismissAbmPlay(opportunityId, playId, reason = null) {
   if (error) throw error
 }
 
+// ── Arquivos da conta ─────────────────────────────────────────
+// Duas categorias: `proposta` (o que a Leadrix enviou, podendo apontar para uma
+// oportunidade) e `cliente` (o que veio do cliente). O arquivo vive num bucket
+// privado; o que trafega para a tela é sempre uma URL assinada de curta duração.
+//
+// Em demonstração não há bucket: os metadados ficam no navegador e o conteúdo
+// numa memória volátil — dá para enviar e baixar na mesma sessão, e a tela diz
+// que o arquivo não persiste.
+export const FILE_CATEGORIES = {
+  proposta: { label: 'Propostas', help: 'O que a Leadrix enviou: proposta, business case, escopo.' },
+  cliente: { label: 'Arquivos do cliente', help: 'O que veio do cliente: briefing, planilha, contrato, material de apoio.' },
+}
+
+export const MAX_FILE_BYTES = 25 * 1024 * 1024
+
+const demoBlobs = new Map()
+
+const FILE_COLUMNS = 'id, account_id, opportunity_id, category, name, path, mime, size_bytes, notes, uploaded_by, created_at'
+
+export async function listAccountFiles(accountId) {
+  if (DEMO_MODE) {
+    return structuredClone(loadState().account_files || [])
+      .filter((f) => !accountId || f.account_id === accountId)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+  }
+  let q = supabase.from('account_files').select(FILE_COLUMNS).order('created_at', { ascending: false })
+  if (accountId) q = q.eq('account_id', accountId)
+  const { data, error } = await q
+  if (error) throw error
+  return data
+}
+
+// Caminho previsível e sem colisão: conta / categoria / carimbo-nome.
+function filePath(accountId, category, fileName) {
+  const base = slug(String(fileName).replace(/\.[^.]+$/, '')) || 'arquivo'
+  const ext = (String(fileName).match(/\.[^.]+$/) || [''])[0].toLowerCase()
+  return `${accountId}/${category}/${Date.now()}-${base}${ext}`
+}
+
+export async function uploadAccountFile({ accountId, opportunityId = null, category, file, notes = null }) {
+  if (!accountId || !file) throw new Error('Escolha a conta e o arquivo.')
+  if (!FILE_CATEGORIES[category]) throw new Error('Categoria inválida.')
+  if (file.size > MAX_FILE_BYTES) {
+    throw new Error(`Arquivo acima do limite de ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB.`)
+  }
+  const path = filePath(accountId, category, file.name)
+  const row = {
+    account_id: accountId,
+    opportunity_id: opportunityId || null,
+    category,
+    name: file.name,
+    path,
+    mime: file.type || null,
+    size_bytes: file.size,
+    notes: String(notes || '').trim() || null,
+  }
+
+  if (DEMO_MODE) {
+    demoBlobs.set(path, file)
+    return mutate((s) => {
+      s.account_files = s.account_files || []
+      const created = { id: uid(), ...row, uploaded_by: null, created_at: new Date().toISOString() }
+      s.account_files.unshift(created)
+      return { id: created.id }
+    })
+  }
+
+  const { error: upErr } = await supabase.storage
+    .from('documentos')
+    .upload(path, file, { contentType: file.type || undefined, upsert: false })
+  if (upErr) throw upErr
+
+  const { data, error } = await supabase.from('account_files').insert(row).select('id').single()
+  if (error) {
+    // Metadado falhou: tira o arquivo do bucket para não deixar órfão invisível.
+    await supabase.storage.from('documentos').remove([path]).catch(() => {})
+    throw error
+  }
+  return { id: data.id }
+}
+
+/** URL para abrir/baixar. Em produção é assinada e expira em poucos minutos. */
+export async function accountFileUrl(file) {
+  if (DEMO_MODE) {
+    const blob = demoBlobs.get(file.path)
+    return blob ? URL.createObjectURL(blob) : null
+  }
+  const { data, error } = await supabase.storage.from('documentos').createSignedUrl(file.path, 300)
+  if (error) throw error
+  return data?.signedUrl || null
+}
+
+export async function deleteAccountFile(file) {
+  if (DEMO_MODE) {
+    demoBlobs.delete(file.path)
+    return mutate((s) => { s.account_files = (s.account_files || []).filter((f) => f.id !== file.id) })
+  }
+  // Apaga o metadado primeiro: um objeto órfão no bucket é desperdício, mas um
+  // registro apontando para arquivo inexistente é erro na cara do usuário.
+  const { error } = await supabase.from('account_files').delete().eq('id', file.id)
+  if (error) throw error
+  await supabase.storage.from('documentos').remove([file.path]).catch(() => {})
+}
+
 // ── Mensageria: configuração do remetente ─────────────────────
 // Guardada em crm_settings (chave 'email_settings'): nome de quem assina,
 // assinatura, aliases autorizados do Gmail da Leadrix e alias padrão.

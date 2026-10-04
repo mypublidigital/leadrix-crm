@@ -411,6 +411,7 @@ function seed() {
     cost_entries,
     contents: [],
     abm_dismissals: [],
+    account_files: [],
     email_templates,
     email_messages,
     email_settings: null,

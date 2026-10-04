@@ -25,7 +25,7 @@ oportunidade, com custo de venda e ROI medidos.
 |---|---|
 | Dashboard | Funil, Radar ABM resumido, custo de venda & ROI em 12 meses, cobertura do programa ABM, matriz pilares × mercados, aging |
 | Contas (ABM) | Filtros por mercado → microssegmento, pilar, nível ABM (nível 1 / nível 2 / relacionamento), porte, etapa… |
-| Conta | Identidade e originação, **pontuação ICP**, **sinais e hipótese de valor**, grupo decisor, **ações ABM sugeridas**, **custo de venda e ROI da conta**, **timeline de relacionamento**, co-piloto conversacional |
+| Conta | Identidade e originação, **arquivos (propostas e material do cliente)**, **pontuação ICP**, **sinais e hipótese de valor**, grupo decisor, **ações ABM sugeridas**, **custo de venda e ROI da conta**, **timeline de relacionamento**, co-piloto conversacional |
 | **Mensageria** | Modelos de e-mail por evento do CRM, fila com revisão, envio pelo Gmail da Leadrix com escolha de alias |
 | Pipeline | Kanban por oportunidade com filtros de mercado/microssegmento/pilar e faixa de aging |
 | **Radar ABM** | Sugestões proativas por aging: jogada, porquê (teoria ABM), persona, custo estimado, "Criar ação" e "Gerar conteúdo" |

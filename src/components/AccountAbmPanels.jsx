@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
-  Gauge, Radio, History, Building2, Briefcase, GitBranch, CalendarCheck, MessageSquare, Mail, PenLine, Target,
+  Gauge, Radio, History, Building2, Briefcase, GitBranch, CalendarCheck, MessageSquare, Mail, PenLine, Target, FolderOpen,
 } from 'lucide-react'
 import Modal from './Modal'
 import InfoTip from './InfoTip'
@@ -12,7 +12,7 @@ import { ABM_THEORY } from '../data/abmPlaybook'
 import { ABM_TIERS } from '../lib/constants'
 import { buildTimeline, timelineSummary, TIMELINE_TYPES } from '../lib/timeline'
 
-const ICON = { Building2, Briefcase, GitBranch, CalendarCheck, MessageSquare, Mail, PenLine }
+const ICON = { Building2, Briefcase, GitBranch, CalendarCheck, MessageSquare, Mail, PenLine, FolderOpen }
 
 // ── Pontuação da conta ideal (ICP) ──────────────────────────────
 export function IcpPanel({ account }) {
@@ -264,11 +264,11 @@ function SignalsModal({ account, onClose }) {
 }
 
 // ── Timeline de relacionamento ──────────────────────────────────
-export function TimelinePanel({ account, tasks, interactions, emails, opportunities, contents, onOpenTask }) {
+export function TimelinePanel({ account, tasks, interactions, emails, opportunities, contents, files, onOpenTask }) {
   const [filter, setFilter] = useState('')
   const items = useMemo(
-    () => buildTimeline({ account, tasks, interactions, emails, opportunities, contents }),
-    [account, tasks, interactions, emails, opportunities, contents],
+    () => buildTimeline({ account, tasks, interactions, emails, opportunities, contents, files }),
+    [account, tasks, interactions, emails, opportunities, contents, files],
   )
   const summary = useMemo(() => timelineSummary(items), [items])
   const list = filter ? items.filter((i) => i.type === filter) : items

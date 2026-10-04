@@ -21,10 +21,11 @@ import { IcpPanel, SignalsPanel, TimelinePanel } from '../components/AccountAbmP
 import { PillarBadge } from '../components/SegmentFilters'
 import { useAuth } from '../lib/useAuth'
 import OpportunityCreateModal from '../components/OpportunityCreateModal'
+import AccountFilesPanel from '../components/AccountFilesPanel'
 import { useEmailMessages, useContents, useRoster } from '../lib/hooks'
 import { CAMPAIGNS } from '../data/abmContext'
 import { LEAD_ORIGINATORS } from '../lib/constants'
-import { getAccount, saveStrategy, removeAccountService, addInteraction } from '../lib/data'
+import { getAccount, saveStrategy, removeAccountService, addInteraction, listAccountFiles } from '../lib/data'
 import { accountConsolidatedTemp } from '../lib/finance'
 import { idadeAtual } from '../lib/birthdays'
 import { suggestForOpportunity, committeeCoverage } from '../lib/abm'
@@ -150,6 +151,7 @@ export default function AccountView() {
   const { data: emails = [] } = useEmailMessages(id)
   const { data: allContents = [] } = useContents()
   const { data: roster = [] } = useRoster()
+  const { data: accountFiles = [] } = useQuery({ queryKey: ['account-files', id], queryFn: () => listAccountFiles(id) })
   const { can } = useAuth()
 
   const [taskModal, setTaskModal] = useState(null)
@@ -292,6 +294,8 @@ export default function AccountView() {
 
           <IcpPanel account={a} />
 
+          <AccountFilesPanel account={a} opportunities={opportunities} />
+
           {can('costs.view') && <AccountCostPanel account={a} opportunities={opportunities} />}
 
           {(a.proposals || []).length > 0 && (
@@ -410,6 +414,7 @@ export default function AccountView() {
             emails={emails}
             opportunities={opportunities}
             contents={allContents.filter((c) => c.account_id === a.id)}
+            files={accountFiles}
             onOpenTask={(taskId) => setTaskModal({ task: (a.tasks || []).find((t) => t.id === taskId) })}
           />
         </div>

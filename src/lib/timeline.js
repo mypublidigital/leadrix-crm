@@ -18,6 +18,7 @@ export const TIMELINE_TYPES = {
   interacao: { label: 'Interação', icon: 'MessageSquare', color: 'bg-violet-100 text-violet-700' },
   email: { label: 'E-mail', icon: 'Mail', color: 'bg-amber-100 text-amber-800' },
   conteudo: { label: 'Conteúdo', icon: 'PenLine', color: 'bg-indigo-100 text-indigo-700' },
+  arquivo: { label: 'Arquivo', icon: 'FolderOpen', color: 'bg-ink-100 text-ink-700' },
 }
 
 const day = (v) => (v ? String(v).slice(0, 10) : null)
@@ -26,7 +27,7 @@ const at = (v) => (v && String(v).length <= 10 ? `${v}T12:00:00.000Z` : v)
 /**
  * @returns [{ id, at, type, title, detail, badge, done }] em ordem decrescente.
  */
-export function buildTimeline({ account, tasks = [], interactions = [], emails = [], opportunities = [], contents = [] }) {
+export function buildTimeline({ account, tasks = [], interactions = [], emails = [], opportunities = [], contents = [], files = [] }) {
   const items = []
   const svcName = (o) => o?.service?.name || o?.service_id || 'serviço'
 
@@ -119,6 +120,17 @@ export function buildTimeline({ account, tasks = [], interactions = [], emails =
       detail: CONTENT_FORMATS[c.format]?.label || c.format,
       badge: c.status,
       done: c.status === 'publicado',
+    })
+  })
+
+  files.forEach((f) => {
+    items.push({
+      id: `file-${f.id}`,
+      at: at(f.created_at),
+      type: 'arquivo',
+      title: f.category === 'proposta' ? `Proposta enviada: ${f.name}` : `Arquivo recebido do cliente: ${f.name}`,
+      detail: f.mime || null,
+      done: true,
     })
   })
 
