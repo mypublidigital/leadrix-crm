@@ -101,7 +101,7 @@ export default function AccountCostPanel({ account, opportunities = [], focusOpp
         <table className="mt-3 w-full text-xs">
           <thead>
             <tr className="text-left text-[10px] font-semibold uppercase tracking-wide text-ink-500">
-              <th className="py-1">Oportunidade</th><th className="py-1 text-right">Custo</th><th className="py-1 text-right">ROI</th>
+              <th className="py-1">Oportunidade</th><th className="py-1 text-right whitespace-nowrap">Custo</th><th className="py-1 text-right whitespace-nowrap">ROI</th>
             </tr>
           </thead>
           <tbody>
@@ -109,12 +109,15 @@ export default function AccountCostPanel({ account, opportunities = [], focusOpp
               const r = opportunityRoi(o, byOpp.get(o.id)?.total || 0, account)
               return (
                 <tr key={o.id} className="border-t border-ink-100">
-                  <td className="py-1.5 pr-2">
-                    <div className="truncate text-ink-800">{o.service?.name || o.service_id}</div>
+                  {/* `max-w-0 w-full` faz a célula ceder espaço na tabela de
+                      largura automática — sem isso o nome do serviço estica a
+                      coluna e espreme Custo e ROI contra a borda. */}
+                  <td className="w-full max-w-0 py-1.5 pr-2">
+                    <div className="truncate text-ink-800" title={o.service?.name || o.service_id}>{o.service?.name || o.service_id}</div>
                     <div className="text-[10px] text-ink-400">{CRM_STAGES[o.stage]?.label} · {formatBRL(o.estimated_value_brl)}</div>
                   </td>
-                  <td className="py-1.5 text-right font-semibold text-ink-900">{formatBRL(r.cost)}</td>
-                  <td className={`py-1.5 text-right font-semibold ${r.roi == null ? 'text-ink-400' : r.roi >= 0 ? 'text-accent-700' : 'text-rose-600'}`}>
+                  <td className="whitespace-nowrap py-1.5 pl-2 text-right font-semibold text-ink-900">{formatBRL(r.cost)}</td>
+                  <td className={`whitespace-nowrap py-1.5 pl-2 text-right font-semibold ${r.roi == null ? 'text-ink-400' : r.roi >= 0 ? 'text-accent-700' : 'text-rose-600'}`}>
                     {formatPct(r.roi)}{r.projected && r.roi != null ? <span className="ml-0.5 text-[9px] font-normal text-ink-400">proj.</span> : null}
                   </td>
                 </tr>

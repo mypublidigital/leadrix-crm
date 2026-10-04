@@ -257,7 +257,8 @@ export default function AccountsList() {
           {isLoading && <div className="p-8 text-center text-sm text-ink-500">Carregando…</div>}
           {error && <div className="p-8 text-center text-sm text-rose-600">Erro ao carregar contas: {error.message}</div>}
           {!isLoading && !error && (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[56rem] text-sm">
               <thead>
                 <tr className="border-b border-ink-200 text-left text-xs font-semibold uppercase tracking-wide text-ink-500">
                   <th className="px-4 py-3">
@@ -297,7 +298,7 @@ export default function AccountsList() {
                     <td className="px-4 py-3">
                       <Link to={`/contas/${a.id}`} className="flex items-center gap-2.5 font-semibold text-ink-900 hover:text-brand-600">
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-ink-100 text-ink-500"><Building2 size={16} /></span>
-                        <span>{a.name}{a.site && <span className="ml-1 inline-flex items-center text-ink-400"><ExternalLink size={12} /></span>}</span>
+                        <span className="min-w-0 break-words">{a.name}{a.site && <span className="ml-1 inline-flex items-center text-ink-400"><ExternalLink size={12} /></span>}</span>
                       </Link>
                     </td>
                     <td className="px-4 py-3"><MarketBadge id={a.segment} micro={a.micro_segment} /></td>
@@ -324,6 +325,7 @@ export default function AccountsList() {
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </div>
         <p className="text-center text-xs text-ink-400">{filtered.length} de {accounts.length} contas</p>

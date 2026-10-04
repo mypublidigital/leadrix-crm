@@ -329,7 +329,7 @@ export default function TaskModal({ task, draft, defaultAccountId, onClose }) {
                         checked={serviceIds.includes(s.id) || alreadyInterest.has(s.id)}
                         onChange={() => toggleService(s.id)}
                       />
-                      <span className="flex-1">{s.name}</span>
+                      <span className="min-w-0 flex-1 break-words">{s.name}</span>
                       {s.anchor && <span className="chip bg-amber-100 text-amber-700">âncora</span>}
                     </label>
                   ))}

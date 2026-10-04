@@ -207,7 +207,10 @@ export default function AccountView() {
         </>}
       />
 
-      <div className="grid grid-cols-1 gap-5 p-6 lg:grid-cols-3">
+      {/* Três colunas só a partir de xl: em 1024px elas ficavam com 220px e o
+          conteúdo dos cartões (termômetro, valores, nomes de serviço) não
+          cabia. Entre lg e xl a tela usa duas colunas. */}
+      <div className="grid grid-cols-1 gap-5 p-6 lg:grid-cols-2 xl:grid-cols-3">
         {/* Coluna esquerda */}
         <div className="space-y-5">
           <Section icon={Building2} title="Identidade" action={<button className="btn-ghost text-xs" onClick={() => setEditModal(true)}>Editar</button>}>
@@ -216,7 +219,10 @@ export default function AccountView() {
               <Row label="CNPJ"><span className="inline-flex items-center gap-1">{a.cnpj ? <><Hash size={12} />{a.cnpj}</> : '—'}</span></Row>
               <Row label="Site">{a.site ? (
                 <a href={a.site.startsWith('http') ? a.site : `https://${a.site}`} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-brand-600 hover:underline"><Globe size={14} /> {a.site}</a>
+                  className="flex items-start gap-1 text-brand-600 hover:underline">
+                  <Globe size={14} className="mt-0.5 shrink-0" />
+                  <span className="min-w-0 break-all">{a.site}</span>
+                </a>
               ) : '—'}</Row>
               <Row label="Mercado">
                 {a.segment === 'outros' ? (a.segment_other || 'Outros') : (SEGMENTS[a.segment] || '—')}
@@ -230,7 +236,7 @@ export default function AccountView() {
               <Row label="Porta de entrada">{ENTRY_DOORS[a.entry_door]?.label || '—'}</Row>
               <Row label="Porte">{ACCOUNT_SIZES[a.account_size] || '—'}</Row>
               <Row label="Termômetro">
-                <span className="flex items-center gap-2">
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <ThermometerBadge value={consolidatedTemp} withLabel />
                   <span className="text-xs text-ink-400">consolidado — edite em cada oportunidade</span>
                 </span>
@@ -272,17 +278,22 @@ export default function AccountView() {
             <ul className="space-y-3">
               {(a.contacts || []).map((c, i) => (
                 <li key={i} className="border-b border-ink-100 pb-3 last:border-0 last:pb-0">
-                  <div className="flex items-center gap-2 font-semibold text-ink-900">
-                    {c.name || 'Sem nome'}
+                  <div className="flex flex-wrap items-center gap-2 font-semibold text-ink-900">
+                    <span className="min-w-0 break-words">{c.name || 'Sem nome'}</span>
                     {c.is_primary && <span className="chip bg-brand-50 text-brand-600">principal</span>}
                   </div>
                   {c.role && <div className="text-xs text-ink-500">{c.role}</div>}
                   <div className="mt-1 space-y-0.5 text-xs text-ink-600">
-                    {c.email && <div className="flex items-center gap-1.5"><Mail size={12} /> <a href={`mailto:${c.email}`} className="hover:underline">{c.email}</a></div>}
-                    {c.phone && <div className="flex items-center gap-1.5"><Phone size={12} /> {c.phone}</div>}
+                    {c.email && (
+                      <div className="flex items-start gap-1.5">
+                        <Mail size={12} className="mt-0.5 shrink-0" />
+                        <a href={`mailto:${c.email}`} className="min-w-0 break-all hover:underline">{c.email}</a>
+                      </div>
+                    )}
+                    {c.phone && <div className="flex items-center gap-1.5"><Phone size={12} className="shrink-0" /> {c.phone}</div>}
                     {c.birth_date && (
                       <div className="flex items-center gap-1.5">
-                        <Cake size={12} />
+                        <Cake size={12} className="shrink-0" />
                         {format(parseISO(String(c.birth_date).slice(0, 10)), "d 'de' MMMM", { locale: ptBR })}
                         {idadeAtual(c.birth_date) != null && ` · ${idadeAtual(c.birth_date)} anos`}
                       </div>
@@ -511,8 +522,14 @@ export default function AccountView() {
 function Row({ label, children }) {
   return (
     <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
-      <dt className="w-40 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink-400">{label}</dt>
-      <dd className="flex-1 text-ink-700">{children}</dd>
+      {/* O cartão ocupa 1/3 da tela em telas grandes: rótulo largo demais não
+          deixa espaço para o valor (o termômetro com rótulo não tem onde
+          quebrar e vazava). */}
+      <dt className="w-32 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink-400">{label}</dt>
+      {/* `min-w-0` é obrigatório: sem ele o item flex não encolhe abaixo da
+          largura do conteúdo e um texto sem espaços (site, e-mail) vaza do
+          cartão. `break-words` quebra o que não couber mesmo assim. */}
+      <dd className="min-w-0 flex-1 break-words text-ink-700">{children}</dd>
     </div>
   )
 }
