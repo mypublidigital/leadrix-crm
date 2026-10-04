@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, AlertCircle } from 'lucide-react'
 import Modal from './Modal'
@@ -7,6 +7,7 @@ import { isValidCNPJ, formatCNPJ, isValidEmail } from '../lib/validators'
 import { CLASSIFICATIONS, SEGMENTS, ACCOUNT_SIZES, LEAD_SOURCES, LEAD_SOURCE_DETAIL_HINT, ABM_TIERS, LEAD_ORIGINATORS } from '../lib/constants'
 import { ENTRY_DOORS, MARKETS } from '../data/leadrix'
 import { CAMPAIGNS, CAMPAIGN_IDS } from '../data/abmContext'
+import Combobox from './Combobox'
 import { useMicroSegments } from '../lib/hooks'
 
 // Serve para CRIAR e para EDITAR: sem `account` (ou sem id) entra em modo
@@ -38,6 +39,18 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
     campaign: account.campaign || '',
     observations: account.observations || '',
   })
+  // Com mercado escolhido, só os microssegmentos dele; sem mercado, todos
+  // agrupados (o grupo também entra na busca).
+  const microOptions = useMemo(() => {
+    const lista = f.segment ? micros.filter((m) => m.segment === f.segment) : micros
+    return lista.map((m) => ({
+      value: m.label,
+      label: m.label,
+      marketId: m.segment,
+      group: f.segment ? null : MARKETS[m.segment]?.label,
+    }))
+  }, [micros, f.segment])
+
   const [contacts, setContacts] = useState((account.contacts || []).map((c) => ({ ...c })))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -160,13 +173,22 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
         </div>
         <div>
           <label className="label">Microssegmento</label>
-          <select className="input" value={f.micro_segment} onChange={set('micro_segment')} disabled={!f.segment}>
-            <option value="">{f.segment ? '—' : 'Escolha o mercado'}</option>
-            {micros.filter((m) => m.segment === f.segment).map((m) => <option key={m.id} value={m.label}>{m.label}</option>)}
-            {f.micro_segment && !micros.some((m) => m.segment === f.segment && m.label === f.micro_segment) && (
-              <option value={f.micro_segment}>{f.micro_segment} (fora da lista)</option>
-            )}
-          </select>
+          {/* Lista longa: busca por digitação. Sem mercado escolhido mostra todos
+              agrupados — e escolher um microssegmento preenche o mercado dele. */}
+          <Combobox
+            value={f.micro_segment}
+            options={microOptions}
+            allowFree
+            placeholder={f.segment ? 'Digite para buscar…' : 'Digite para buscar em todos os mercados…'}
+            emptyLabel="Nenhum microssegmento com esse texto — cadastre em Configurações"
+            onChange={(valor, opcao) => {
+              setF((p) => ({
+                ...p,
+                micro_segment: valor,
+                segment: !p.segment && opcao?.marketId ? opcao.marketId : p.segment,
+              }))
+            }}
+          />
           {f.segment && <p className="mt-1 text-xs text-ink-400">Decisores típicos: {MARKETS[f.segment]?.personas.join(', ')}.</p>}
         </div>
         {select('Nível ABM', 'abm_tier', Object.entries(ABM_TIERS).map(([k, v]) => [k, v.label]))}

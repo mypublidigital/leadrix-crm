@@ -34,6 +34,7 @@ export default function OpportunityModal({ opportunity, onClose }) {
   const [ownerId, setOwnerId] = useState(opp.owner_id || '')
   const [value, setValue] = useState(opp.estimated_value_brl ?? 0)
   const [notes, setNotes] = useState(opp.notes || '')
+  const [title, setTitle] = useState(opp.title || '')
   const [proposalLink, setProposalLink] = useState(opp.proposal_link || '')
   const [reviewDate, setReviewDate] = useState(opp.standby_review_date || '')
   const [lostReason, setLostReason] = useState(opp.lost_reason || '')
@@ -53,6 +54,7 @@ export default function OpportunityModal({ opportunity, onClose }) {
         commercial_temp: Number(temp),
         owner_id: ownerId || null,
         estimated_value_brl: Number(value) || 0,
+        title: title.trim() || null,
         notes: notes || null,
         proposal_link: proposalLink || null,
         standby_review_date: reviewDate || null,
@@ -70,7 +72,7 @@ export default function OpportunityModal({ opportunity, onClose }) {
     <Modal wide onClose={onClose}
       title={
         <span className="flex items-center gap-2">
-          {a?.name || '…'} · {serviceName} <StageBadge value={opp.stage} />
+          {a?.name || '…'} · {serviceName}{opp.title ? ` · ${opp.title}` : ''} <StageBadge value={opp.stage} />
           {opp.service?.macro_id && <PillarBadge id={opp.service.macro_id} />}
         </span>
       }
@@ -144,6 +146,13 @@ export default function OpportunityModal({ opportunity, onClose }) {
               </select>
             </div>
           )}
+
+          <div>
+            <label className="label">Identificação desta oportunidade</label>
+            <input className="input" value={title} onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ex.: Unidade Sul · Fase 2" />
+            <p className="mt-1 text-xs text-ink-400">Diferencia oportunidades do mesmo serviço nesta conta.</p>
+          </div>
 
           <div>
             <label className="label">Anotações da negociação</label>

@@ -6,6 +6,7 @@
 import { supabase, isSupabaseConfigured } from './supabase'
 import { loadState, mutate, uid, resetState } from './demoStore'
 import { withDefaults } from './costs'
+import { isValidEmail } from './validators'
 import { slug } from '../data/leadrix'
 
 export const DEMO_MODE = !isSupabaseConfigured
@@ -309,6 +310,38 @@ export async function capturePhoto(imageBase64, mediaType = 'image/jpeg', thumbD
   return invokeFn('crm-capture', { image_base64: imageBase64, media_type: mediaType })
 }
 
+// Cadastro manual do pré-lead (sem foto): cartão que chegou por mensagem,
+// contato anotado no papel, indicação por telefone. Entra na mesma pré-base da
+// captura por foto e segue para "promover a conta" do mesmo jeito.
+export async function createPreLead(pl) {
+  const txt = (v) => {
+    const s = String(v ?? '').trim()
+    return s === '' ? null : s
+  }
+  const row = {
+    name: txt(pl.name), company: txt(pl.company), role: txt(pl.role),
+    email: txt(pl.email), phone: txt(pl.phone), notes: txt(pl.notes),
+    status: 'novo',
+  }
+  if (!row.name && !row.company) throw new Error('Informe ao menos o nome da pessoa ou a empresa.')
+  if (row.email && !isValidEmail(row.email)) throw new Error('E-mail com formato inválido.')
+
+  if (DEMO_MODE) {
+    return mutate((s) => {
+      s.pre_leads = s.pre_leads || []
+      const created = {
+        id: uid(), photo_path: null, thumb: null, ...row,
+        promoted_account_id: null, created_at: new Date().toISOString(),
+      }
+      s.pre_leads.unshift(created)
+      return { id: created.id }
+    })
+  }
+  const { data, error } = await supabase.from('pre_leads').insert(row).select('id').single()
+  if (error) throw error
+  return { id: data.id }
+}
+
 export async function listPreLeads() {
   if (DEMO_MODE) return structuredClone(loadState().pre_leads || [])
   const { data, error } = await supabase
@@ -592,22 +625,64 @@ export async function listAllAccountServices() {
   return data
 }
 
+// Marca um serviço como interesse da conta (fluxo da ação ABM). Aqui NÃO se
+// duplica: marcar duas vezes a mesma caixa é engano, não uma segunda venda.
+// Para abrir uma segunda oportunidade do mesmo serviço, use createOpportunity.
 export async function addAccountService(accountId, service_id, estimated_value_brl, interest = 'interessado') {
   if (DEMO_MODE) {
     return mutate((s) => {
       if (s.account_services.some((as) => as.account_id === accountId && as.service_id === service_id)) return
       s.account_services.push({
-        id: uid(), account_id: accountId, service_id, estimated_value_brl, interest, notes: null,
+        id: uid(), account_id: accountId, service_id, title: null, estimated_value_brl, interest, notes: null,
         stage: 'lead', commercial_temp: 0, owner_id: null,
         stage_entered_at: new Date().toISOString(), stage_history: [],
         created_at: new Date().toISOString(),
       })
     })
   }
+  const { data: existing, error: readErr } = await supabase
+    .from('account_services').select('id').eq('account_id', accountId).eq('service_id', service_id).limit(1)
+  if (readErr) throw readErr
+  if (existing?.length) return
   const { error } = await supabase
     .from('account_services')
-    .upsert({ account_id: accountId, service_id, estimated_value_brl, interest }, { onConflict: 'account_id,service_id' })
+    .insert({ account_id: accountId, service_id, estimated_value_brl, interest })
   if (error) throw error
+}
+
+/**
+ * Cria uma OPORTUNIDADE, podendo repetir um serviço que a conta já tem
+ * (outra unidade, outra fase, outro ano). `title` identifica qual é qual.
+ */
+export async function createOpportunity(opp) {
+  const row = {
+    account_id: opp.account_id,
+    service_id: opp.service_id,
+    title: String(opp.title || '').trim() || null,
+    notes: String(opp.notes || '').trim() || null,
+    estimated_value_brl: Number(opp.estimated_value_brl) || 0,
+    interest: opp.interest || 'interessado',
+    stage: opp.stage || 'lead',
+    commercial_temp: Number(opp.commercial_temp) || 0,
+    owner_id: opp.owner_id || null,
+  }
+  if (!row.account_id || !row.service_id) throw new Error('Escolha a conta e o serviço da oportunidade.')
+
+  if (DEMO_MODE) {
+    return mutate((s) => {
+      const created = {
+        id: uid(), ...row,
+        stage_entered_at: new Date().toISOString(), stage_history: [],
+        standby_review_date: null, lost_reason: null, proposal_link: null,
+        created_at: new Date().toISOString(),
+      }
+      s.account_services.push(created)
+      return { id: created.id }
+    })
+  }
+  const { data, error } = await supabase.from('account_services').insert(row).select('id').single()
+  if (error) throw error
+  return { id: data.id }
 }
 
 export async function updateAccountService(id, patch) {

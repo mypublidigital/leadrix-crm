@@ -29,13 +29,28 @@ export function aniversarioNoAno(birthDate, ano) {
   return new Date(ano, p.mes - 1, dia)
 }
 
-// Idade que a pessoa completa no aniversário daquele ano. Null quando o ano de
+// Idade que a pessoa COMPLETA no aniversário daquele ano. Serve para a agenda
+// ("faz 40 anos em 12/03"), não para dizer a idade de hoje. Null quando o ano de
 // nascimento não foi informado de forma plausível (o campo aceita qualquer ano,
 // e muita gente não sabe o do contato).
 export function idadeNoAno(birthDate, ano) {
   const p = partes(birthDate)
   if (!p || p.ano < 1900 || p.ano >= ano) return null
   return ano - p.ano
+}
+
+// Idade de HOJE: a que a pessoa já completou. Antes do aniversário do ano
+// corrente ela ainda está na idade anterior — usar `idadeNoAno` no cadastro
+// envelhecia o contato em um ano durante todo o começo do ano.
+export function idadeAtual(birthDate, hoje = new Date()) {
+  const p = partes(birthDate)
+  if (!p || p.ano < 1900) return null
+  const aniversario = aniversarioNoAno(birthDate, hoje.getFullYear())
+  if (!aniversario) return null
+  // Compara só a data (ignora a hora): quem faz aniversário hoje já conta.
+  const hojeData = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+  const idade = hoje.getFullYear() - p.ano - (hojeData < aniversario ? 1 : 0)
+  return idade >= 0 ? idade : null
 }
 
 // Contatos que fazem aniversário dentro do intervalo, achatados com a conta.

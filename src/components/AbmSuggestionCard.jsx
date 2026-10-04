@@ -11,6 +11,7 @@ import { taskDraftFromPlay } from '../lib/abm'
 import { CRM_STAGES, ABM_TIERS, TASK_TYPES, formatBRL } from '../lib/constants'
 import { ABM_THEORY } from '../data/abmPlaybook'
 import { useAuth } from '../lib/useAuth'
+import { useRoster } from '../lib/hooks'
 
 // Cartão de sugestão ABM para UMA oportunidade: contexto de aging, cobertura
 // do comitê de compra e as jogadas recomendadas com custo estimado.
@@ -20,7 +21,10 @@ export default function AbmSuggestionCard({ suggestion, settings, showAccount = 
   const [taskDraft, setTaskDraft] = useState(null)
   const [contentBrief, setContentBrief] = useState(null)
   const { can } = useAuth()
+  const { data: roster = [] } = useRoster()
   const { opp, account, aging, coverage, context, plays, pillar, tier, campaign, signals, committee } = suggestion
+  // Cada oportunidade tem seu dono — quem vê o radar precisa saber de quem é.
+  const dono = opp.owner_id ? roster.find((u) => u.id === opp.owner_id) : null
 
   async function dismiss(play) {
     await dismissAbmPlay(opp.id, play.id)
@@ -34,7 +38,9 @@ export default function AbmSuggestionCard({ suggestion, settings, showAccount = 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             {showAccount && <span className="font-semibold text-ink-900">{account.name}</span>}
-            <span className="text-sm text-ink-600">{opp.service?.name || opp.service_id}</span>
+            <span className="text-sm text-ink-600">
+              {opp.service?.name || opp.service_id}{opp.title ? ` · ${opp.title}` : ''}
+            </span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <span className={`chip ${aging.level.color}`}>{aging.level.label}</span>
@@ -47,6 +53,7 @@ export default function AbmSuggestionCard({ suggestion, settings, showAccount = 
         <div className="shrink-0 text-right">
           <div className="text-sm font-semibold text-ink-900">{formatBRL(opp.estimated_value_brl)}</div>
           <div className="text-[11px] text-ink-500">{plays.length} jogada(s)</div>
+          <div className="text-[11px] text-ink-400">{dono ? (dono.full_name || dono.email) : 'sem dono'}</div>
         </div>
         {open ? <ChevronDown size={18} className="mt-1 text-ink-400" /> : <ChevronRight size={18} className="mt-1 text-ink-400" />}
       </button>

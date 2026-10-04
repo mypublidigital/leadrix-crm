@@ -280,7 +280,7 @@ export default function CustosRoi() {
                   <tr key={r.o.id} className="border-b border-ink-100 last:border-0 hover:bg-ink-50/60">
                     <td className="px-4 py-2.5">
                       <Link to={`/contas/${r.o.account_id}`} className="font-semibold text-ink-900 hover:text-brand-600">{r.acc?.name}</Link>
-                      <div className="flex items-center gap-1.5 text-xs text-ink-500">{r.o.service?.name}{r.o.service?.macro_id && <PillarBadge id={r.o.service.macro_id} />}</div>
+                      <div className="flex items-center gap-1.5 text-xs text-ink-500">{r.o.service?.name}{r.o.title ? ` · ${r.o.title}` : ''}{r.o.service?.macro_id && <PillarBadge id={r.o.service.macro_id} />}</div>
                     </td>
                     <td className="px-4 py-2.5"><span className={`chip ${CRM_STAGES[r.o.stage]?.color}`}>{CRM_STAGES[r.o.stage]?.label}</span></td>
                     <td className="px-4 py-2.5 text-right font-mono text-xs">{r.hours.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}</td>

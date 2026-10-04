@@ -20,12 +20,13 @@ import AbmSuggestionCard from '../components/AbmSuggestionCard'
 import { IcpPanel, SignalsPanel, TimelinePanel } from '../components/AccountAbmPanels'
 import { PillarBadge } from '../components/SegmentFilters'
 import { useAuth } from '../lib/useAuth'
-import { useEmailMessages, useContents } from '../lib/hooks'
+import OpportunityCreateModal from '../components/OpportunityCreateModal'
+import { useEmailMessages, useContents, useRoster } from '../lib/hooks'
 import { CAMPAIGNS } from '../data/abmContext'
 import { LEAD_ORIGINATORS } from '../lib/constants'
 import { getAccount, saveStrategy, removeAccountService, addInteraction } from '../lib/data'
 import { accountConsolidatedTemp } from '../lib/finance'
-import { idadeNoAno } from '../lib/birthdays'
+import { idadeAtual } from '../lib/birthdays'
 import { suggestForOpportunity, committeeCoverage } from '../lib/abm'
 import { useTasks, useDismissals, useSalesCost } from '../lib/hooks'
 import { ENTRY_DOORS } from '../data/leadrix'
@@ -148,6 +149,7 @@ export default function AccountView() {
   const { data: settings } = useSalesCost()
   const { data: emails = [] } = useEmailMessages(id)
   const { data: allContents = [] } = useContents()
+  const { data: roster = [] } = useRoster()
   const { can } = useAuth()
 
   const [taskModal, setTaskModal] = useState(null)
@@ -155,6 +157,11 @@ export default function AccountView() {
   const [editModal, setEditModal] = useState(false)
   const [interactionModal, setInteractionModal] = useState(false)
   const [oppModal, setOppModal] = useState(null)
+  const [newOppModal, setNewOppModal] = useState(false)
+  const [oppToDelete, setOppToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const rosterById = new Map(roster.map((u) => [u.id, u]))
 
   if (isLoading) return <div className="p-8 text-sm text-ink-500">Carregando conta…</div>
   if (error) return <div className="p-8 text-sm text-rose-600">Erro: {error.message}</div>
@@ -273,8 +280,7 @@ export default function AccountView() {
                       <div className="flex items-center gap-1.5">
                         <Cake size={12} />
                         {format(parseISO(String(c.birth_date).slice(0, 10)), "d 'de' MMMM", { locale: ptBR })}
-                        {idadeNoAno(c.birth_date, new Date().getFullYear()) != null &&
-                          ` · ${idadeNoAno(c.birth_date, new Date().getFullYear())} anos`}
+                        {idadeAtual(c.birth_date) != null && ` · ${idadeAtual(c.birth_date)} anos`}
                       </div>
                     )}
                   </div>
@@ -343,36 +349,52 @@ export default function AccountView() {
 
           <Section icon={Briefcase}
             title={`Oportunidades · ${formatBRL(oppValue)}`}
-            action={<button className="btn-ghost text-xs" onClick={() => setTaskModal({ new: true })}>+ via tarefa</button>}>
+            action={
+              <div className="flex items-center gap-1">
+                <button className="btn-ghost text-xs" onClick={() => setTaskModal({ new: true })}>+ via ação</button>
+                <button className="btn-outline py-1 text-xs" onClick={() => setNewOppModal(true)}><Plus size={14} /> Nova</button>
+              </div>
+            }>
             {opportunities.length ? (
               <ul className="space-y-2">
-                {opportunities.map((o) => (
-                  <li key={o.id} className="rounded-lg border border-ink-100 p-2.5 hover:bg-ink-50">
-                    <button className="flex w-full items-center justify-between gap-2 text-left" onClick={() => setOppModal(o)}>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-ink-900">{o.service?.name || o.service_id}</div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                          {o.service?.macro_id && <PillarBadge id={o.service.macro_id} />}
-                          <StageBadge value={o.stage} />
-                          <ThermometerBadge value={o.commercial_temp} />
+                {opportunities.map((o) => {
+                  const dono = o.owner_id ? rosterById.get(o.owner_id) : null
+                  return (
+                    <li key={o.id} className="rounded-lg border border-ink-100 p-2.5 hover:bg-ink-50">
+                      <div className="flex items-start justify-between gap-2">
+                        <button className="min-w-0 flex-1 text-left" onClick={() => setOppModal(o)}>
+                          <div className="truncate text-sm font-medium text-ink-900">
+                            {o.service?.name || o.service_id}
+                            {o.title && <span className="ml-1 font-normal text-ink-500">· {o.title}</span>}
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                            {o.service?.macro_id && <PillarBadge id={o.service.macro_id} />}
+                            <StageBadge value={o.stage} />
+                            <ThermometerBadge value={o.commercial_temp} />
+                          </div>
+                          <div className="mt-1 flex items-center gap-1 text-xs text-ink-500">
+                            <User size={11} />
+                            {dono ? (dono.full_name || dono.email) : <span className="text-ink-400">sem dono definido</span>}
+                          </div>
+                          {o.notes && <p className="mt-1 line-clamp-2 text-xs text-ink-500">{o.notes}</p>}
+                        </button>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <span className="text-sm font-semibold text-brand-500">{formatBRL(o.estimated_value_brl)}</span>
+                          {can('opportunity.delete') && (
+                            <button className="rounded p-1 text-ink-300 hover:bg-rose-50 hover:text-rose-500"
+                              onClick={() => setOppToDelete(o)} title="Excluir oportunidade (só administradores)">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <span className="shrink-0 text-sm font-semibold text-brand-500">{formatBRL(o.estimated_value_brl)}</span>
-                    </button>
-                    {can('opportunity.delete') && (
-                      <div className="mt-1 flex justify-end">
-                        <button className="rounded p-1 text-ink-300 hover:bg-rose-50 hover:text-rose-500"
-                          onClick={() => delService(o.id)} title="Excluir oportunidade (só administradores)">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    )}
-                  </li>
-                ))}
+                    </li>
+                  )
+                })}
               </ul>
             ) : (
               <p className="text-sm text-ink-400">
-                Nenhuma oportunidade. Marque os serviços de interesse ao criar uma tarefa de ABM — cada um vira uma oportunidade no pipeline.
+                Nenhuma oportunidade. Use “Nova” para abrir uma, ou marque os serviços de interesse ao criar uma ação ABM.
               </p>
             )}
           </Section>
@@ -433,6 +455,47 @@ export default function AccountView() {
             qc.invalidateQueries({ queryKey: ['account', id] })
           }}
         />
+      )}
+      {newOppModal && (
+        <OpportunityCreateModal account={a} existing={opportunities} onClose={() => setNewOppModal(false)} />
+      )}
+
+      {/* Exclusão nomeia a oportunidade: "tem certeza?" sozinho não protege de
+          ter clicado na lixeira da linha errada, e não há desfazer. */}
+      {oppToDelete && (
+        <Modal
+          title="Excluir oportunidade"
+          onClose={() => !deleting && setOppToDelete(null)}
+          footer={<>
+            <button className="btn-ghost" onClick={() => setOppToDelete(null)} disabled={deleting}>Cancelar</button>
+            <button className="btn-primary bg-rose-600 hover:bg-rose-700" autoFocus disabled={deleting}
+              onClick={async () => {
+                setDeleting(true)
+                try {
+                  await delService(oppToDelete.id)
+                  setOppToDelete(null)
+                } finally {
+                  setDeleting(false)
+                }
+              }}>
+              {deleting ? 'Excluindo…' : 'Excluir oportunidade'}
+            </button>
+          </>}>
+          <p className="text-sm text-ink-700">Tem certeza que deseja excluir esta oportunidade?</p>
+          <div className="mt-3 rounded-lg border border-ink-200 bg-ink-50 p-3 text-sm">
+            <div className="font-semibold text-ink-900">
+              {oppToDelete.service?.name || oppToDelete.service_id}
+              {oppToDelete.title && <span className="font-normal text-ink-500"> · {oppToDelete.title}</span>}
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <StageBadge value={oppToDelete.stage} />
+              <span className="text-xs text-ink-600">{formatBRL(oppToDelete.estimated_value_brl)}</span>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-ink-500">
+            Some do pipeline e das previsões. O histórico de etapas e os custos lançados nela vão junto — a ação não pode ser desfeita.
+          </p>
+        </Modal>
       )}
     </>
   )

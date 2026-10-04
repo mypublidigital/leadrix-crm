@@ -293,7 +293,9 @@ export default function Pipeline() {
                           <GripVertical size={14} className="mt-0.5 shrink-0 text-ink-300" />
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-sm font-semibold text-ink-900">{acc?.name || '—'}</div>
-                            <div className="truncate text-xs text-ink-500">{o.service?.name || o.service_id}</div>
+                            <div className="truncate text-xs text-ink-500">
+                              {o.service?.name || o.service_id}{o.title ? ` · ${o.title}` : ''}
+                            </div>
                             {o.service?.macro_id && <div className="mt-1"><PillarBadge id={o.service.macro_id} /></div>}
                             <div className="mt-1 text-sm font-bold text-brand-500">{formatBRL(o.estimated_value_brl)}</div>
                             <div className="mt-1 flex items-center justify-between gap-1">

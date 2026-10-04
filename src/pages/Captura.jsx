@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Camera, Upload, Loader2, CheckCircle2, XCircle, UserPlus, Trash2, ImageOff, Sparkles,
+  Camera, Upload, Loader2, CheckCircle2, XCircle, UserPlus, Trash2, ImageOff, Sparkles, PenLine,
 } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import {
-  capturePhoto, listPreLeads, preLeadPhotoUrl, updatePreLead, promotePreLead, discardPreLead,
+  capturePhoto, listPreLeads, preLeadPhotoUrl, updatePreLead, promotePreLead, discardPreLead, createPreLead,
 } from '../lib/data'
 
 // Comprime a foto no navegador (max 1600px, JPEG) → base64 leve para a IA.
@@ -105,6 +105,86 @@ function PreLeadCard({ pl, onChanged }) {
   )
 }
 
+// Cadastro manual: nem todo lead chega por foto. Cai na mesma pré-base e segue
+// para "Promover a conta" do mesmo jeito.
+function ManualPreLeadForm({ onCreated }) {
+  const vazio = { name: '', company: '', role: '', email: '', phone: '', notes: '' }
+  const [aberto, setAberto] = useState(false)
+  const [f, setF] = useState(vazio)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [ok, setOk] = useState('')
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }))
+
+  async function salvar() {
+    setBusy(true); setErr(''); setOk('')
+    try {
+      await createPreLead(f)
+      setF(vazio)
+      setOk('Pré-lead cadastrado — está na pré-base abaixo, pronto para promover a conta.')
+      onCreated?.()
+    } catch (e) {
+      setErr(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!aberto) {
+    return (
+      <button className="btn-outline w-full" onClick={() => { setAberto(true); setOk('') }}>
+        <PenLine size={16} /> Cadastrar lead manualmente (sem foto)
+      </button>
+    )
+  }
+
+  return (
+    <div className="card p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-ink-900">
+          <PenLine size={16} className="text-brand-500" /> Cadastro manual
+        </h2>
+        <button className="btn-ghost text-xs" onClick={() => { setAberto(false); setErr('') }}>Fechar</button>
+      </div>
+      {err && <p className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{err}</p>}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="label">Nome</label>
+          <input className="input" value={f.name} onChange={set('name')} placeholder="Nome da pessoa" />
+        </div>
+        <div>
+          <label className="label">Empresa</label>
+          <input className="input" value={f.company} onChange={set('company')} placeholder="Nome da empresa" />
+        </div>
+        <div>
+          <label className="label">Cargo</label>
+          <input className="input" value={f.role} onChange={set('role')} placeholder="Ex.: Diretor de Operações" />
+        </div>
+        <div>
+          <label className="label">Telefone</label>
+          <input className="input" value={f.phone} onChange={set('phone')} placeholder="+55 11 99999-0000" />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="label">E-mail</label>
+          <input className="input" value={f.email} onChange={set('email')} placeholder="nome@empresa.com.br" />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="label">Onde conheceu / observações</label>
+          <textarea className="input min-h-[60px]" value={f.notes} onChange={set('notes')}
+            placeholder="Ex.: conversamos no workshop de setembro; quer entender automação de propostas." />
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <button className="btn-primary" onClick={salvar} disabled={busy || (!f.name.trim() && !f.company.trim())}>
+          {busy ? 'Salvando…' : 'Adicionar à pré-base'}
+        </button>
+        <span className="text-xs text-ink-500">Informe ao menos o nome ou a empresa.</span>
+      </div>
+      {ok && <p className="mt-2 text-xs text-accent-700">{ok}</p>}
+    </div>
+  )
+}
+
 export default function Captura() {
   const qc = useQueryClient()
   const { data: preLeads = [] } = useQuery({ queryKey: ['pre-leads'], queryFn: listPreLeads })
@@ -156,7 +236,7 @@ export default function Captura() {
     <>
       <PageHeader
         title="Captura de leads"
-        subtitle="Evento, feira, almoço: fotografe o cartão de visita ou a tela de contato — a IA estrutura os dados na pré-base."
+        subtitle="Evento, feira, almoço: fotografe o cartão de visita ou a tela de contato — a IA estrutura os dados na pré-base. Também dá para cadastrar o lead à mão."
       />
       <div className="mx-auto max-w-2xl space-y-4 p-4 sm:p-6">
         {/* Zona de captura (mobile-first) */}
@@ -196,6 +276,8 @@ export default function Captura() {
             </div>
           )}
         </div>
+
+        <ManualPreLeadForm onCreated={() => qc.invalidateQueries({ queryKey: ['pre-leads'] })} />
 
         {/* Pré-base */}
         <div className="flex items-center gap-2">
