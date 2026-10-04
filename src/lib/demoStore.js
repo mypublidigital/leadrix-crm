@@ -140,7 +140,7 @@ function seed() {
     accounts.push({
       id: `demo-${slug(name)}`,
       name,
-      trade_name: null,
+      legal_name: null,
       cnpj: null,
       site: `www.${slug(name).split('-').slice(0, 2).join('')}.com.br`,
       classification,

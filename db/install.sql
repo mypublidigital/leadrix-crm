@@ -1,7 +1,7 @@
 -- ============================================================
 -- Leadrix CRM — instalação completa do schema (cole e rode)
 -- Painel Supabase → SQL Editor → New query → cole tudo → Run
--- Equivale às migrations 0001 a 0012, em ordem.
+-- Equivale às migrations 0001 a 0013, em ordem.
 -- ============================================================
 
 -- ╔══════════════════════════════════════════════════════════════╗
@@ -979,5 +979,27 @@ alter table account_services add column if not exists title text;
 -- Índice que a unique dava de graça e o filtro por conta ainda usa.
 create index if not exists account_services_account_service_idx
   on account_services (account_id, service_id);
+
+
+-- ╔══════════════════════════════════════════════════════════════╗
+-- ║  Leadrix CRM — "nome fantasia" vira "razão social"             ║
+-- ║                                                                ║
+-- ║  O campo chave da conta é o NOME pelo qual o time se refere a   ║
+-- ║  ela (é por ele que a importação casa as linhas). O segundo     ║
+-- ║  campo, opcional, passa a guardar a razão social — o nome que   ║
+-- ║  vai no contrato. A coluna acompanha o significado.             ║
+-- ╚══════════════════════════════════════════════════════════════╝
+
+do $$ begin
+  if exists (select 1 from information_schema.columns
+             where table_name = 'accounts' and column_name = 'trade_name')
+     and not exists (select 1 from information_schema.columns
+                     where table_name = 'accounts' and column_name = 'legal_name')
+  then
+    alter table accounts rename column trade_name to legal_name;
+  end if;
+end $$;
+
+alter table accounts add column if not exists legal_name text;
 
 

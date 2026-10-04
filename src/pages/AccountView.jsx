@@ -210,7 +210,7 @@ export default function AccountView() {
         <div className="space-y-5">
           <Section icon={Building2} title="Identidade" action={<button className="btn-ghost text-xs" onClick={() => setEditModal(true)}>Editar</button>}>
             <dl className="space-y-2 text-sm">
-              <Row label="Nome fantasia">{a.trade_name || '—'}</Row>
+              <Row label="Razão social">{a.legal_name || '—'}</Row>
               <Row label="CNPJ"><span className="inline-flex items-center gap-1">{a.cnpj ? <><Hash size={12} />{a.cnpj}</> : '—'}</span></Row>
               <Row label="Site">{a.site ? (
                 <a href={a.site.startsWith('http') ? a.site : `https://${a.site}`} target="_blank" rel="noreferrer"

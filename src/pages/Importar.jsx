@@ -178,7 +178,7 @@ export default function Importar() {
             <div>
               <div className="text-sm font-semibold text-ink-800">Clique para selecionar um arquivo</div>
               <div className="text-xs text-ink-500">
-                CSV, XLSX ou XLS · colunas reconhecidas: Cliente, Contato (Nome/Cargo/E-mail/Telefone),
+                CSV, XLSX ou XLS · colunas reconhecidas: Cliente, Razão social, Contato (Nome/Cargo/E-mail/Telefone),
                 Classificação, CNPJ, Mercado, Microssegmento, Nível ABM, Porte, Termômetro, Campanha,
                 Canal de origem, Origem do lead, Comissão de indicação (%), Site, Observações…
               </div>

@@ -19,7 +19,7 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
   const { data: micros = [] } = useMicroSegments()
   const [f, setF] = useState({
     name: account.name || '',
-    trade_name: account.trade_name || '',
+    legal_name: account.legal_name || '',
     cnpj: account.cnpj || '',
     site: account.site || '',
     classification: account.classification || 'lead',
@@ -79,7 +79,7 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
     setBusy(true); setErr('')
     const payload = {
       name: f.name.trim(),
-      trade_name: f.trade_name || null,
+      legal_name: f.legal_name || null,
       cnpj: f.cnpj.trim() ? formatCNPJ(f.cnpj) : null,
       site: f.site || null,
       classification: f.classification,
@@ -153,8 +153,10 @@ export default function AccountEditModal({ account = {}, onClose, onCreated }) {
         </p>
       )}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {field('Nome (razão/cliente) *', 'name')}
-        {field('Nome fantasia', 'trade_name')}
+        {/* `name` é a chave: é por ele que a importação casa as linhas. A razão
+            social é opcional e serve para o contrato. */}
+        {field('Nome *', 'name')}
+        {field('Razão social', 'legal_name')}
         {field('CNPJ', 'cnpj', 'text',
           cnpjInvalido && <p className="mt-1 text-xs text-rose-600">CNPJ inválido (dígito verificador não confere).</p>)}
         {field('Site', 'site')}

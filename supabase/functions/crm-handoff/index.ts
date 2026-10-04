@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       name: input.name || `Projeto — ${account.name}`,
       client: {
         legal_name: account.name,
-        trade_name: account.trade_name,
+        trade_name: account.legal_name,
         cnpj: account.cnpj,
         segment: input.segment || account.segment,
         size: input.size || account.account_size,

@@ -99,7 +99,10 @@ function mapCommission(raw) {
 
 // aceita variações de nome de coluna
 const COL = {
-  name: ['Cliente', 'Nome', 'Empresa', 'Razão Social', 'Conta'],
+  // 'Razão Social' saiu daqui: virou coluna própria (legal_name). O nome da
+  // conta é a chave do casamento na importação.
+  name: ['Cliente', 'Nome', 'Empresa', 'Conta'],
+  legalName: ['Razão Social', 'Razao Social', 'Razão social'],
   refs: ['Referências das Propostas', 'Referencias das Propostas'],
   titles: ['Títulos das Propostas', 'Titulos das Propostas'],
   macro: ['Macro Categorias', 'Macro Categoria', 'Categorias'],
@@ -269,6 +272,7 @@ export async function parseUploadFile(file) {
 
     accounts.push({
       name,
+      legal_name: pickComLinha(grp, COL.legalName).valor || null,
       site: pick(grp[0], COL.site) || null,
       classification: classification.value,
       cnpj: cnpj.value,

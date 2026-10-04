@@ -25,7 +25,7 @@ const { CAMPAIGNS } = await import(new URL('data/abmContext.js', root).href)
 const { MARKETS, MARKET_IDS } = await import(new URL('data/leadrix.js', root).href)
 
 const HEADERS = [
-  'Cliente', 'CNPJ', 'Site', 'Classificação', 'Mercado', 'Microssegmento', 'Porte',
+  'Cliente', 'Razão social', 'CNPJ', 'Site', 'Classificação', 'Mercado', 'Microssegmento', 'Porte',
   'Nível ABM', 'Campanha', 'Termômetro', 'Canal de origem', 'Origem do lead',
   'Origem (especificar)', 'Quem indicou', 'Comissão de indicação (%)',
   'Contato (Nome)', 'Contato (Cargo)', 'Contato (E-mail)', 'Contato (Telefone)', 'Observações',
@@ -35,7 +35,7 @@ const HEADERS = [
 // aparecer na primeira linha.
 const EXEMPLOS = [
   {
-    Cliente: 'Metalúrgica Serra Azul', CNPJ: '11.222.333/0001-81', Site: 'www.serraazul.ind.br',
+    Cliente: 'Metalúrgica Serra Azul', 'Razão social': 'Serra Azul Indústria Metalúrgica S.A.', CNPJ: '11.222.333/0001-81', Site: 'www.serraazul.ind.br',
     'Classificação': 'Conta-alvo', Mercado: 'Indústria', Microssegmento: 'Metalmecânica e autopeças',
     Porte: 'Grande', 'Nível ABM': '1:1', Campanha: 'IA no fluxo real da operação', 'Termômetro': 60,
     'Canal de origem': 'Prospecção ativa (ABM)', 'Origem do lead': 'Boomit', 'Origem (especificar)': '',
@@ -45,14 +45,14 @@ const EXEMPLOS = [
     'Observações': 'Trocou de ERP em 2026; processos administrativos ainda em planilha.',
   },
   {
-    Cliente: 'Metalúrgica Serra Azul', CNPJ: '', Site: '', 'Classificação': '', Mercado: '', Microssegmento: '',
+    Cliente: 'Metalúrgica Serra Azul', 'Razão social': '', CNPJ: '', Site: '', 'Classificação': '', Mercado: '', Microssegmento: '',
     Porte: '', 'Nível ABM': '', Campanha: '', 'Termômetro': '', 'Canal de origem': '', 'Origem do lead': '',
     'Origem (especificar)': '', 'Quem indicou': '', 'Comissão de indicação (%)': '',
     'Contato (Nome)': 'Luiza Faria', 'Contato (Cargo)': 'Gerente de TI',
     'Contato (E-mail)': 'luiza.faria@serraazul.ind.br', 'Contato (Telefone)': '', 'Observações': '',
   },
   {
-    Cliente: 'Vértice Consultoria Empresarial', CNPJ: '', Site: 'www.vertice.com.br',
+    Cliente: 'Vértice Consultoria Empresarial', 'Razão social': 'Vértice Consultoria Empresarial Ltda.', CNPJ: '', Site: 'www.vertice.com.br',
     'Classificação': 'Cliente', Mercado: 'Serviços B2B', Microssegmento: 'Consultorias',
     Porte: 'Média', 'Nível ABM': '1:few', Campanha: 'Crescer sem ampliar a estrutura na mesma proporção',
     'Termômetro': 75, 'Canal de origem': 'Indicação', 'Origem do lead': 'Outros',
@@ -67,7 +67,8 @@ const EXEMPLOS = [
 const INSTRUCOES = [
   ['Como preencher esta planilha', ''],
   ['', ''],
-  ['Obrigatório', 'Só a coluna "Cliente". Todo o resto é opcional.'],
+  ['Obrigatório', 'Só a coluna "Cliente" (o nome pelo qual o time chama a conta). Todo o resto é opcional.'],
+  ['Nome x Razão social', 'O nome é a chave da importação; a razão social é o nome do contrato e não participa do casamento.'],
   ['Uma conta por nome', 'Linhas com o mesmo nome de conta são agrupadas. Use uma linha por contato e repita só o nome.'],
   ['Nome é a chave', 'A importação casa pelo NOME (ignorando maiúsculas). Nome existente é atualizado; nome novo cria conta. "Acme" e "Acme Brasil" viram duas contas — padronize antes.'],
   ['Célula vazia não apaga', 'Reimportar não zera o que já está preenchido no CRM: só sobrescreve o que vier preenchido na planilha.'],
