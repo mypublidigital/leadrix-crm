@@ -13,6 +13,7 @@ import {
   PenLine,
   Calculator,
   Mails,
+  BookOpen,
 } from 'lucide-react'
 import { DEMO_MODE } from '../lib/data'
 import Logo from './Logo'
@@ -46,6 +47,12 @@ const groups = [
       { to: '/captura', label: 'Captura de leads', icon: Camera },
       { to: '/importar', label: 'Importador', icon: Upload },
       { to: '/config', label: 'Configurações', icon: Settings },
+    ],
+  },
+  {
+    label: 'Instruções',
+    items: [
+      { to: '/instrucoes', label: 'Como usar o CRM', icon: BookOpen },
     ],
   },
 ]

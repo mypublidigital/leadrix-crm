@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { MARKETS, MARKET_IDS, PILLARS, PILLAR_IDS } from '../data/leadrix'
 import { useMicroSegments } from '../lib/hooks'
+import { LabelTip } from './InfoTip'
+import { FILTRO_TIPS } from '../data/ajuda'
 
 // Filtros encadeados: mercado (macro) → microssegmento, mais pilar de entrega.
 // O microssegmento lista só os do mercado escolhido; sem mercado, lista todos
@@ -19,7 +21,7 @@ export default function SegmentFilters({ value, onChange, showPillar = true, cla
   return (
     <div className={`contents ${className}`}>
       <div>
-        <label className="label">Mercado</label>
+        <LabelTip tip={FILTRO_TIPS.mercado} align="start">Mercado</LabelTip>
         <select
           className="input"
           value={segment}
@@ -34,7 +36,7 @@ export default function SegmentFilters({ value, onChange, showPillar = true, cla
         </select>
       </div>
       <div>
-        <label className="label">Microssegmento</label>
+        <LabelTip tip={FILTRO_TIPS.micro} align="start">Microssegmento</LabelTip>
         <select className="input" value={micro} onChange={(e) => set({ micro: e.target.value })}>
           <option value="">Todos</option>
           {segment
@@ -48,7 +50,7 @@ export default function SegmentFilters({ value, onChange, showPillar = true, cla
       </div>
       {showPillar && (
         <div>
-          <label className="label">Pilar de entrega</label>
+          <LabelTip tip={FILTRO_TIPS.pilar} align="start">Pilar de entrega</LabelTip>
           <select className="input" value={pillar} onChange={(e) => set({ pillar: e.target.value })}>
             <option value="">Todos os pilares</option>
             {PILLAR_IDS.map((k) => <option key={k} value={k}>{PILLARS[k].short}</option>)}

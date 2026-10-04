@@ -15,6 +15,7 @@ import RadarAbm from './pages/RadarAbm'
 import Conteudo from './pages/Conteudo'
 import CustosRoi from './pages/CustosRoi'
 import Mensageria from './pages/Mensageria'
+import Instrucoes from './pages/Instrucoes'
 import Login from './pages/Login'
 import { useAuth } from './lib/useAuth'
 
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="captura" element={<Captura />} />
         <Route path="importar" element={<Importar />} />
         <Route path="config" element={<Config />} />
+        <Route path="instrucoes" element={<Instrucoes />} />
         <Route path="*" element={<Placeholder title="Página não encontrada" subtitle="" />} />
       </Route>
     </Routes>

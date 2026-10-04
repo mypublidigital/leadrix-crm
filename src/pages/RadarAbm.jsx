@@ -4,6 +4,8 @@ import { Radar, AlertTriangle, Users, Wallet, BookOpen } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import AbmSuggestionCard from '../components/AbmSuggestionCard'
 import SegmentFilters, { oppMatches } from '../components/SegmentFilters'
+import InfoTip, { LabelTip } from '../components/InfoTip'
+import { RADAR_TIPS } from '../data/ajuda'
 import { useAccounts, useOpportunities, useTasks, useDismissals, useSalesCost, useRoster } from '../lib/hooks'
 import { buildSuggestions } from '../lib/abm'
 import { withDefaults } from '../lib/costs'
@@ -62,30 +64,31 @@ export default function RadarAbm() {
       <div className="space-y-5 p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi icon={AlertTriangle} label="Críticas ou paradas" value={kpis.byLevel.critico + kpis.byLevel.parado}
+            tip={RADAR_TIPS.kpiCriticas} tipAlign="start"
             hint={`${kpis.byLevel.atencao} em atenção · ${kpis.byLevel.no_prazo} no prazo`} />
-          <Kpi icon={Wallet} label="Valor em risco" value={formatBRL(kpis.atRisk)} hint="Oportunidades críticas ou paradas" />
-          <Kpi icon={Users} label="Cobertura do comitê" value={formatPct(kpis.coverage)} hint="Personas do mercado com contato mapeado" />
-          <Kpi icon={Radar} label="Jogadas sugeridas" value={kpis.plays} hint="Descartadas somem por 30 dias" />
+          <Kpi icon={Wallet} label="Valor em risco" value={formatBRL(kpis.atRisk)} tip={RADAR_TIPS.kpiRisco} hint="Oportunidades críticas ou paradas" />
+          <Kpi icon={Users} label="Cobertura do comitê" value={formatPct(kpis.coverage)} tip={RADAR_TIPS.kpiCobertura} hint="Personas do mercado com contato mapeado" />
+          <Kpi icon={Radar} label="Jogadas sugeridas" value={kpis.plays} tip={RADAR_TIPS.kpiJogadas} tipAlign="end" hint="Descartadas somem por 30 dias" />
         </div>
 
         <div className="card grid grid-cols-2 gap-3 p-4 md:grid-cols-4 xl:grid-cols-7">
           <SegmentFilters value={seg} onChange={setSeg} />
           <div>
-            <label className="label">Aging</label>
+            <LabelTip tip={RADAR_TIPS.aging} align="start">Aging</LabelTip>
             <select className="input" value={level} onChange={(e) => setLevel(e.target.value)}>
               <option value="">Pedindo ação</option>
               {AGING_LEVEL_ORDER.map((k) => <option key={k} value={k}>{AGING_LEVELS[k].label}</option>)}
             </select>
           </div>
           <div>
-            <label className="label">Nível ABM</label>
+            <LabelTip tip={RADAR_TIPS.nivel} align="start">Nível ABM</LabelTip>
             <select className="input" value={tier} onChange={(e) => setTier(e.target.value)}>
               <option value="">Todos</option>
               {Object.entries(ABM_TIERS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="label">Dono</label>
+            <LabelTip tip={RADAR_TIPS.dono} align="end">Dono</LabelTip>
             <select className="input" value={owner} onChange={(e) => setOwner(e.target.value)}>
               <option value="">Todos</option>
               {roster.map((u) => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
@@ -94,6 +97,7 @@ export default function RadarAbm() {
           <label className="col-span-2 flex items-center gap-2 self-end pb-2 text-sm text-ink-700 md:col-span-4 xl:col-span-7">
             <input type="checkbox" className="h-4 w-4 rounded border-ink-300" checked={showOnTime} onChange={(e) => setShowOnTime(e.target.checked)} disabled={Boolean(level)} />
             Incluir oportunidades no prazo (jogadas proativas para manter o ritmo)
+            <InfoTip align="start">{RADAR_TIPS.noPrazo}</InfoTip>
           </label>
         </div>
 
@@ -111,14 +115,14 @@ export default function RadarAbm() {
 
           <aside className="space-y-4">
             <div className="card p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-ink-900"><BookOpen size={16} className="text-brand-500" /> Como o Radar decide</h2>
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-ink-900"><BookOpen size={16} className="text-brand-500" /> Como o Radar decide <InfoTip align="end">{RADAR_TIPS.urgencia}</InfoTip></h2>
               <p className="text-xs text-ink-600">
                 Cada etapa tem um SLA de dias. O aging é a razão entre os dias na etapa e o SLA; a faixa define a intensidade da jogada.
                 O nível ABM da conta libera ou não ações de alto investimento (viagem, jantar) e a urgência pondera valor e cobertura do comitê.
               </p>
               <table className="mt-3 w-full text-xs">
                 <thead>
-                  <tr className="text-left text-ink-500"><th className="py-1">Etapa</th><th className="py-1 text-right">SLA (dias)</th></tr>
+                  <tr className="text-left text-ink-500"><th className="py-1">Etapa</th><th className="py-1 text-right"><span className="inline-flex items-center gap-1">SLA (dias) <InfoTip size={12} align="end">{RADAR_TIPS.sla}</InfoTip></span></th></tr>
                 </thead>
                 <tbody>
                   {Object.entries(settings.aging_sla).map(([k, v]) => (
@@ -126,7 +130,8 @@ export default function RadarAbm() {
                   ))}
                 </tbody>
               </table>
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                <InfoTip size={13} align="start">{RADAR_TIPS.faixas}</InfoTip>
                 {AGING_LEVEL_ORDER.map((k) => (
                   <span key={k} className={`chip ${AGING_LEVELS[k].color}`}>
                     {AGING_LEVELS[k].label} {k === 'no_prazo' ? '≤ 1×' : k === 'parado' ? '> 3×' : `≤ ${AGING_LEVELS[k].upTo}×`}
@@ -148,13 +153,13 @@ export default function RadarAbm() {
   )
 }
 
-function Kpi({ icon: Icon, label, value, hint }) {
+function Kpi({ icon: Icon, label, value, hint, tip, tipAlign = "center" }) {
   return (
     <div className="card flex items-center gap-4 p-5">
       <div className="grid h-11 w-11 place-items-center rounded-lg bg-ink-900 text-white"><Icon size={20} /></div>
       <div className="min-w-0">
         <div className="kpi truncate">{value}</div>
-        <div className="text-xs font-medium text-ink-600">{label}</div>
+        <div className="flex items-center gap-1 text-xs font-medium text-ink-600">{label}{tip && <InfoTip size={13} align={tipAlign}>{tip}</InfoTip>}</div>
         {hint && <div className="text-[11px] text-ink-400">{hint}</div>}
       </div>
     </div>
